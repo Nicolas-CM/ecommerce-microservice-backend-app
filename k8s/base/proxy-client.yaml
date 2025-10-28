@@ -1,0 +1,65 @@
+﻿---
+# proxy-client Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-client
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-client
+  template:
+    metadata:
+      labels:
+        app: proxy-client
+    spec:
+      containers:
+      - name: proxy-client
+        image: selimhorri/proxy-client-ecommerce-boot:0.1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8900
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "dev"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          valueFrom:
+            configMapKeyRef:
+              name: eureka-config
+              key: EUREKA_SERVER_URL
+        - name: SPRING_ZIPKIN_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: zipkin-config
+              key: ZIPKIN_BASE_URL
+        - name: SPRING_CONFIG_IMPORT
+          value: "optional:configserver:http://cloud-config:9296/"
+        - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+          value: "false"
+        - name: EUREKA_INSTANCE_HOSTNAME
+          value: "proxy-client"
+        - name: EUREKA_CLIENT_ENABLED
+          value: "true"
+        - name: EUREKA_CLIENT_FETCH_REGISTRY
+          value: "true"
+        - name: RIBBON_EUREKA_ENABLED
+          value: "true"
+---
+# proxy-client Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy-client
+  namespace: ecommerce
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8900
+    targetPort: 8900
+    protocol: TCP
+    name: http
+  selector:
+    app: proxy-client

@@ -1,0 +1,47 @@
+---
+# Service Discovery (Eureka) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-discovery
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-discovery
+  template:
+    metadata:
+      labels:
+        app: service-discovery
+    spec:
+      containers:
+      - name: service-discovery
+        image: selimhorri/service-discovery-ecommerce-boot:0.1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8761
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "dev"
+        - name: SPRING_ZIPKIN_ENABLED
+          value: "false"
+        - name: SPRING_SLEUTH_ENABLED
+          value: "false"
+---
+# Service Discovery Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-discovery
+  namespace: ecommerce
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8761
+    targetPort: 8761
+    protocol: TCP
+    name: http
+  selector:
+    app: service-discovery
