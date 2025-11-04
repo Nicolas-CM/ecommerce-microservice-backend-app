@@ -33,30 +33,7 @@ spring:
               - PATCH
               - OPTIONS
       routes:
-      - id: ORDER-SERVICE
-        uri: lb://ORDER-SERVICE
-        predicates:
-        - Path=/order-service/**
-      - id: PAYMENT-SERVICE
-        uri: lb://PAYMENT-SERVICE
-        predicates:
-        - Path=/payment-service/**
-      - id: PRODUCT-SERVICE
-        uri: lb://PRODUCT-SERVICE
-        predicates:
-        - Path=/product-service/**
-      - id: SHIPPING-SERVICE
-        uri: lb://SHIPPING-SERVICE
-        predicates:
-        - Path=/shipping-service/**
-      - id: USER-SERVICE
-        uri: lb://USER-SERVICE
-        predicates:
-        - Path=/user-service/**
-      - id: FAVOURITE-SERVICE
-        uri: lb://FAVOURITE-SERVICE
-        predicates:
-        - Path=/favourite-service/**
+      # ✅ ÚNICA ruta válida - TODO pasa por PROXY-CLIENT
       - id: PROXY-CLIENT
         uri: lb://PROXY-CLIENT
         predicates:

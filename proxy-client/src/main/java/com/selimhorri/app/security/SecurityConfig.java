@@ -22,62 +22,64 @@ import lombok.RequiredArgsConstructor;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-	
+
 	private final UserDetailsService userDetailsService;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtRequestFilter jwtRequestFilter;
-	
+
 	@Override
 	protected void configure(final AuthenticationManagerBuilder auth) throws Exception {
 		auth.userDetailsService(this.userDetailsService)
-			.passwordEncoder(this.passwordEncoder);
+				.passwordEncoder(this.passwordEncoder);
 	}
-	
+
 	@Override
 	protected void configure(final HttpSecurity http) throws Exception {
 		http.cors().disable()
-			.csrf().disable()
-			.authorizeRequests()
+				.csrf().disable()
+				.authorizeRequests()
+				// ✅ Endpoints públicos (sin autenticación)
 				.antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.antMatchers("/", "index", "**/css/**", "**/js/**").permitAll()
+
+				// ✅ Autenticación - PÚBLICO para poder hacer login
 				.antMatchers("/api/authenticate/**").permitAll()
-				.antMatchers("/api/categories/**").permitAll()
-				.antMatchers("/api/products/**").permitAll()
-				.antMatchers("/api/**")
-					.hasAnyRole(RoleBasedAuthority.ROLE_USER.getRole(), 
-							RoleBasedAuthority.ROLE_ADMIN.getRole())
-				.antMatchers("/actuator/health/**", "/actuator/info/**")
-					.permitAll()
+
+				// ✅ Endpoints públicos del negocio
+				.antMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+				.antMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
+				// ✅ Registro de usuarios - PÚBLICO
+				.antMatchers(HttpMethod.POST, "/api/users").permitAll()
+
+				// ✅ Actuator - health público, resto requiere ADMIN
+				.antMatchers("/actuator/health/**", "/actuator/info/**").permitAll()
 				.antMatchers("/actuator/**")
-					.hasAnyRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
+				.hasRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
+
+				// ✅ Todas las demás rutas de API requieren autenticación
+				.antMatchers("/api/**")
+				.hasAnyRole(RoleBasedAuthority.ROLE_USER.getRole(),
+						RoleBasedAuthority.ROLE_ADMIN.getRole())
+
+				// ✅ Cualquier otra petición debe estar autenticada
 				.anyRequest().authenticated()
-			.and()
-			.headers()
+				.and()
+				.headers()
 				.frameOptions()
 				.sameOrigin()
-			.and()
-			.sessionManagement()
+				.and()
+				.sessionManagement()
 				.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-			.and()
-			.addFilterBefore(this.jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+				.and()
+				// ✅ Filtro JWT ANTES de UsernamePasswordAuthenticationFilter
+				.addFilterBefore(this.jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 	}
-	
+
 	@Bean
 	@Override
 	public AuthenticationManager authenticationManagerBean() throws Exception {
 		return super.authenticationManagerBean();
 	}
-	
-	
-	
+
 }
-
-
-
-
-
-
-
-
-
-

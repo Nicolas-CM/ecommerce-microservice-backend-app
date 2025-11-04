@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
       - name: user-service
-        image: selimhorri/user-service-ecommerce-boot:0.1.0
-        imagePullPolicy: IfNotPresent
+        image: user-service:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8700
           name: http

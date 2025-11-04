@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
       - name: proxy-client
-        image: selimhorri/proxy-client-ecommerce-boot:0.1.0
-        imagePullPolicy: IfNotPresent
+        image: proxy-client:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8900
           name: http

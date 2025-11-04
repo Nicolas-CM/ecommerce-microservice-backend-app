@@ -211,8 +211,35 @@ kubectl delete -f k8s/base/product-service.yaml -n ecommerce
 kubectl delete -f k8s/base/order-service.yaml -n ecommerce
 kubectl delete -f k8s/base/payment-service.yaml -n ecommerce
 kubectl delete -f k8s/base/shipping-service.yaml -n ecommerce
-kubectl delete -f k8s/base/favourite-service.yaml -n ecommerce
+kubectl delete -f k8s/base/favourite-service.yaml -n ecommer
 ```
+
+#### Cambios en código (REINICIO)
+
+- Recompilar (ya tienes V13__update_admin_password.sql)
+
+cd user-service
+mvnw.cmd clean package -DskipTests
+cd ..
+
+- Apuntar a Minikube Docker
+
+@FOR /f "tokens=*" %i IN ('minikube -p minikube docker-env --shell cmd') DO @%i
+
+- Reconstruir imagen
+docker build -t user-service:latest ./user-service
+
+- Eliminar pod para forzar BD nueva (importante para V13)
+kubectl delete pod -n ecommerce -l app=user-service
+
+- Esperar 20 segundos
+timeout /t 20 /nobreak
+
+- Verificar que V13 se ejecutó
+kubectl logs -n ecommerce -l app=user-service | findstr "V13"
+
+- Probar autenticación
+curl -X POST http://localhost:8080/app/api/authenticate -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin\"}"
 
 ### 5.6 Verificar Despliegue
 
@@ -264,6 +291,310 @@ curl http://localhost:8500/product-service/api/products
 
 # Zipkin
 curl http://localhost:9411
+```
+
+### 6.3 Probar API Gateway + Proxy-Client
+
+#### Port-Forward del API Gateway
+```powershell
+kubectl port-forward -n ecommerce svc/api-gateway 8080:8080
+```
+
+#### Endpoints Públicos (Sin Autenticación)
+
+```powershell
+# 1. Verificar que el código está actualizado
+curl http://localhost:8080/app/api/authenticate/status
+
+# 2. Generar hash BCrypt de una contraseña
+curl http://localhost:8080/app/api/authenticate/hash/admin
+curl http://localhost:8080/app/api/authenticate/hash/testuser
+
+# 3. Listar categorías
+curl http://localhost:8080/app/api/categories
+
+# 4. Listar productos
+curl http://localhost:8080/app/api/products
+
+# 5. Listar todos los usuarios (público)
+curl http://localhost:8080/app/api/users
+```
+
+#### Verificar Hash BCrypt (POST)
+
+**POST** `http://localhost:8080/app/api/authenticate/verify`
+
+Body (raw JSON):
+```json
+{
+  "password": "admin",
+  "hash": "$2a$10$N.zmdr9k7uOCQaoXKRd/bOH3HwFx6djKE5Kz2bhAXrKPZ6gLWbwzq"
+}
+```
+
+**Respuesta esperada:** `true` o `false`
+
+---
+
+#### Registro de Usuario (POST)
+
+**POST** `http://localhost:8080/app/api/users`
+
+Body (raw JSON):
+```json
+{
+ "userId": "{{$randomInt}}",
+ "firstName": "Alejandro",
+ "lastName": "Cordoba",
+ "imageUrl": "{{$randomUrl}}",
+ "email": "{{$randomEmail}}",
+ "addressDtos": [
+    {
+ "fullAddress": "123 Main St",
+ "postalCode": "12345",
+ "city": "New York"
+ }
+ ],
+ "credential": {
+ "username": "johndoe",
+ "password": "securePassword123",
+ "roleBasedAuthority": "ROLE_USER",
+ "isEnabled": true,
+ "isAccountNonExpired": true,
+ "isAccountNonLocked": true,
+ "isCredentialsNonExpired": true
+ }
+}
+```
+
+> ⚠️ **Importante**: Todos los campos booleanos de `credential` deben tener valor `true` para que el usuario pueda autenticarse correctamente.
+
+---
+
+#### Autenticación (POST)
+
+**POST** `http://localhost:8080/app/api/authenticate`
+
+Body (raw JSON) - Admin:
+```json
+{
+  "username": "admin",
+  "password": "admin"
+}
+```
+
+Body (raw JSON) - TestUser:
+```json
+{
+  "username": "testuser",
+  "password": "testuser"
+}
+```
+
+**Respuesta esperada:**
+```json
+{
+  "username": "admin",
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...",
+  "roles": ["ROLE_ADMIN"]
+}
+```
+
+---
+
+#### Endpoints Protegidos (Con JWT Token)
+
+> 💡 **Nota**: Primero haz login y copia el token de la respuesta. Luego agrégalo en el Header `Authorization: Bearer TU_TOKEN`
+
+**1. Crear un pedido**
+
+**POST** `http://localhost:8080/app/api/orders`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+Content-Type: application/json
+```
+
+**1. Crear un carrito**
+
+**POST** `http://localhost:8080/app/api/carts`
+
+Body (raw JSON):
+```json
+{
+  "userId": 1
+}
+```
+
+**Respuesta esperada:** CartDto con `cartId` generado (ej. 1).
+
+---
+
+**2. Crear una orden con el carrito**
+
+**POST** `http://localhost:8080/app/api/orders`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+Content-Type: application/json
+```
+
+Body (raw JSON):
+```json
+{
+  "orderDate": "04-11-2025__20:00:00:000000",
+  "orderDesc": "Pedido de prueba",
+  "orderFee": 25.99,
+  "cart": {
+    "cartId": 1
+  }
+}
+```
+
+**Respuesta esperada:** OrderDto con `orderId` generado (ej. 1).
+
+> ⚠️ **Importante**: Antes de crear la orden, verifica que el `cartId` existe ejecutando GET `http://localhost:8080/app/api/carts` para listar todos los carritos. Si no existe, crea uno primero con POST `/app/api/carts`.
+
+---
+
+**3. Agregar productos a la orden (OrderItem)**
+
+**POST** `http://localhost:8080/app/api/shippings`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+Content-Type: application/json
+```
+
+Body (raw JSON):
+```json
+{
+  "productId": 1,
+  "orderId": 5,
+  "orderedQuantity": 2
+}
+```
+
+**Respuesta esperada:** OrderItemDto confirmando la adición.
+
+**GET** `http://localhost:8080/app/api/orders/user/1`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+```
+
+---
+
+**3. Agregar a favoritos**
+
+**POST** `http://localhost:8080/app/api/favourites`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+Content-Type: application/json
+```
+
+Body (raw JSON):
+```json
+{
+"userId": 1,
+"productId": 1,
+"likeDate": "04-11-2025__20:00:00:000000"
+}
+```
+
+---
+
+**4. Ver mis favoritos**
+
+**GET** `http://localhost:8080/app/api/favourites/user/1`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+```
+
+---
+
+**5. Listar todos los usuarios**
+
+**GET** `http://localhost:8080/app/api/users`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+```
+
+**Respuesta esperada:**
+```json
+[
+  {
+    "userId": 1,
+    "firstName": "Admin",
+    "lastName": "User",
+    "imageUrl": null,
+    "email": "admin@ecommerce.com",
+    "phone": "+1234567890",
+    "credential": {
+      "credentialId": 1,
+      "username": "admin",
+      "password": "$2a$10$...",
+      "roleBasedAuthority": "ROLE_ADMIN",
+      "isEnabled": true,
+      "isAccountNonExpired": true,
+      "isAccountNonLocked": true,
+      "isCredentialsNonExpired": true
+    }
+  }
+]
+```
+
+---
+
+**6. Ver un usuario específico por ID**
+
+**GET** `http://localhost:8080/app/api/users/1`
+
+Headers:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTczMDc1...
+```
+
+POST http://localhost:8080/app/api/payments
+
+{
+  "isPayed": false,
+  "paymentStatus": "NOT_STARTED",
+  "order": {
+    "orderId": 1
+  }
+}
+
+#### Verificar Eureka Registration
+
+```powershell
+# Ver servicios registrados en Eureka
+kubectl port-forward -n ecommerce svc/service-discovery 8761:8761
+
+# En navegador o curl
+curl http://localhost:8761
+```
+
+**Servicios que deben aparecer:**
+- API-GATEWAY
+- PROXY-CLIENT
+- USER-SERVICE
+- PRODUCT-SERVICE
+- ORDER-SERVICE
+- PAYMENT-SERVICE
+- SHIPPING-SERVICE
+- FAVOURITE-SERVICE
+
 ```
 
 ---
