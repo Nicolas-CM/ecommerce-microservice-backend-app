@@ -2,7 +2,7 @@ name: PROD - Full Pipeline with Performance Tests
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [develop] #master, main
   workflow_dispatch:
 
 jobs:

@@ -1,0 +1,1086 @@
+{
+	"info": {
+		"_postman_id": "ecommerce-e2e-tests",
+		"name": "E-Commerce Microservices E2E Tests",
+		"description": "End-to-End tests for microservices architecture validating complete user flows through API Gateway",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/app",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "credential_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "product_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "order_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "cart_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "like_date",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "order_date",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "payment_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "E2E Test 1: User Registration and Authentication Flow",
+			"item": [
+				{
+					"name": "1.1 Register New User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Response has user data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('userId');",
+									"    pm.expect(jsonData).to.have.property('firstName');",
+									"    pm.expect(jsonData).to.have.property('lastName');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    ",
+									"    // Store user_id and credential_id for subsequent requests",
+									"    pm.collectionVariables.set(\"user_id\", jsonData.userId);",
+									"    ",
+									"    // If credential was created, store credential_id",
+									"    if (jsonData.credentialDto && jsonData.credentialDto.credentialId) {",
+									"        pm.collectionVariables.set(\"credential_id\", jsonData.credentialDto.credentialId);",
+									"    }",
+									"});",
+									"",
+									"pm.test(\"Response time is less than 2000ms\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"imageUrl\": \"https://example.com/avatar.jpg\",\n  \"email\": \"john.doe.e2e@test.com\",\n  \"phone\": \"+1234567890\",\n  \"addressDtos\": [\n    {\n      \"fullAddress\": \"123 Main Street, Apartment 4B\",\n      \"postalCode\": \"10001\",\n      \"city\": \"New York\"\n    }\n  ],\n  \"credential\": {\n    \"username\": \"johndoe_e2e\",\n    \"password\": \"SecurePass123!\",\n    \"roleBasedAuthority\": \"ROLE_USER\",\n    \"isEnabled\": true,\n    \"isAccountNonExpired\": true,\n    \"isAccountNonLocked\": true,\n    \"isCredentialsNonExpired\": true\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Register a new user through user-service via API Gateway"
+					},
+					"response": []
+				},
+				{
+					"name": "1.2 Authenticate User (Login)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"JWT token received\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('jwtToken');",
+									"    pm.expect(jsonData.jwtToken).to.be.a('string');",
+									"    pm.expect(jsonData.jwtToken.length).to.be.greaterThan(0);",
+									"    ",
+									"    // Store JWT token for subsequent authenticated requests",
+									"    pm.collectionVariables.set(\"jwt_token\", jsonData.jwtToken);",
+									"});",
+									"",
+									"pm.test(\"Authentication successful\", function () {",
+									"    pm.expect(pm.response.code).to.equal(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"johndoe\",\n  \"password\": \"securePassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/authenticate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "authenticate"]
+						},
+						"description": "Authenticate user and obtain JWT token for subsequent requests"
+					},
+					"response": []
+				},
+				{
+					"name": "1.3 Verify User Can Be Retrieved",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Retrieved user matches created user\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.userId).to.eql(parseInt(pm.collectionVariables.get(\"user_id\")));",
+									"    pm.expect(jsonData.email).to.eql(\"john.doe.e2e@test.com\");",
+									"    pm.expect(jsonData.firstName).to.eql(\"John\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "{{user_id}}"]
+						},
+						"description": "Verify user can be retrieved from user-service"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 1: Complete user registration flow including user creation, credential setup, and verification"
+		},
+		{
+			"name": "E2E Test 2: Product Catalog and Search Flow",
+			"item": [
+				{
+					"name": "2.1 Get All Products",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains product list\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('collection');",
+									"    pm.expect(jsonData.collection).to.be.an('array');",
+									"    pm.expect(jsonData.collection.length).to.be.greaterThan(0);",
+									"});",
+									"",
+									"pm.test(\"Product has required fields\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var product = jsonData.collection[0];",
+									"    pm.expect(product).to.have.property('productId');",
+									"    pm.expect(product).to.have.property('productTitle');",
+									"    pm.expect(product).to.have.property('priceUnit');",
+									"    pm.expect(product).to.have.property('sku');",
+									"    ",
+									"    // Store product_id for subsequent tests",
+									"    pm.collectionVariables.set(\"product_id\", product.productId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/products",
+							"host": ["{{base_url}}"],
+							"path": ["api", "products"]
+						},
+						"description": "Retrieve product catalog from product-service"
+					},
+					"response": []
+				},
+				{
+					"name": "2.2 Get Product by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Product details are complete\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    // Check if response is wrapped in collection property",
+									"    var product = jsonData.collection ? jsonData.collection : jsonData;",
+									"    pm.expect(product.productId).to.eql(parseInt(pm.collectionVariables.get(\"product_id\")));",
+									"    pm.expect(product).to.have.property('imageUrl');",
+									"    pm.expect(product).to.have.property('category');",
+									"    pm.expect(product.category).to.have.property('categoryId');",
+									"});",
+									"",
+									"pm.test(\"Product has valid price\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var product = jsonData.collection ? jsonData.collection : jsonData;",
+									"    pm.expect(product.priceUnit).to.be.a('number');",
+									"    pm.expect(product.priceUnit).to.be.at.least(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/products/{{product_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "products", "{{product_id}}"]
+						},
+						"description": "Get detailed product information"
+					},
+					"response": []
+				},
+				{
+					"name": "2.3 Add Product to Favourites",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate likeDate in format: DD-MM-YYYY__HH:mm:ss:SSSSSS",
+									"var now = new Date();",
+									"var day = String(now.getDate()).padStart(2, '0');",
+									"var month = String(now.getMonth() + 1).padStart(2, '0');",
+									"var year = now.getFullYear();",
+									"var hours = String(now.getHours()).padStart(2, '0');",
+									"var minutes = String(now.getMinutes()).padStart(2, '0');",
+									"var seconds = String(now.getSeconds()).padStart(2, '0');",
+									"var milliseconds = String(now.getMilliseconds()).padStart(3, '0') + '000';",
+									"",
+									"var likeDate = day + '-' + month + '-' + year + '__' + hours + ':' + minutes + ':' + seconds + ':' + milliseconds;",
+									"pm.collectionVariables.set('like_date', likeDate);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Favourite created with correct references\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.userId).to.eql(parseInt(pm.collectionVariables.get(\"user_id\")));",
+									"    pm.expect(jsonData.productId).to.eql(parseInt(pm.collectionVariables.get(\"product_id\")));",
+									"    pm.expect(jsonData).to.have.property('likeDate');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": {{user_id}},\n  \"productId\": {{product_id}},\n  \"likeDate\": \"{{like_date}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/favourites",
+							"host": ["{{base_url}}"],
+							"path": ["api", "favourites"]
+						},
+						"description": "Add product to user's favourites list via favourite-service"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 2: Product browsing and interaction flow through product-service and favourite-service"
+		},
+		{
+			"name": "E2E Test 3: Shopping Cart and Order Creation Flow",
+			"item": [
+				{
+					"name": "3.1 Create Shopping Cart",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Cart created successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('cartId');",
+									"    pm.expect(jsonData.userId).to.eql(parseInt(pm.collectionVariables.get(\"user_id\")));",
+									"    ",
+									"    pm.collectionVariables.set(\"cart_id\", jsonData.cartId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/carts",
+							"host": ["{{base_url}}"],
+							"path": ["api", "carts"]
+						},
+						"description": "Create a shopping cart for the user"
+					},
+					"response": []
+				},
+				{
+					"name": "3.2 Create Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate orderDate in format: DD-MM-YYYY__HH:mm:ss:SSSSSS",
+									"var now = new Date();",
+									"var day = String(now.getDate()).padStart(2, '0');",
+									"var month = String(now.getMonth() + 1).padStart(2, '0');",
+									"var year = now.getFullYear();",
+									"var hours = String(now.getHours()).padStart(2, '0');",
+									"var minutes = String(now.getMinutes()).padStart(2, '0');",
+									"var seconds = String(now.getSeconds()).padStart(2, '0');",
+									"var milliseconds = String(now.getMilliseconds()).padStart(3, '0') + '000';",
+									"",
+									"var orderDate = day + '-' + month + '-' + year + '__' + hours + ':' + minutes + ':' + seconds + ':' + milliseconds;",
+									"pm.collectionVariables.set('order_date', orderDate);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Order created with correct details\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('orderId');",
+									"    pm.expect(jsonData).to.have.property('orderDate');",
+									"    pm.expect(jsonData).to.have.property('orderDesc');",
+									"    pm.expect(jsonData.orderDesc).to.eql('E2E Test Order');",
+									"    pm.expect(jsonData).to.have.property('orderFee');",
+									"    pm.expect(jsonData.orderFee).to.eql(99.99);",
+									"    ",
+									"    // Response might have cart or cartDto",
+									"    var cart = jsonData.cart || jsonData.cartDto;",
+									"    pm.expect(cart).to.exist;",
+									"    pm.expect(cart.cartId).to.eql(parseInt(pm.collectionVariables.get(\"cart_id\")));",
+									"    ",
+									"    pm.collectionVariables.set(\"order_id\", jsonData.orderId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"orderDate\": \"{{order_date}}\",\n  \"orderDesc\": \"E2E Test Order\",\n  \"orderFee\": 99.99,\n  \"cart\": {\n    \"cartId\": {{cart_id}}\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/orders",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders"]
+						},
+						"description": "Create an order from the shopping cart via order-service"
+					},
+					"response": []
+				},
+				{
+					"name": "3.3 Get Order Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Retrieved order matches created order\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.orderId).to.eql(parseInt(pm.collectionVariables.get(\"order_id\")));",
+									"    pm.expect(jsonData.orderDesc).to.eql(\"E2E Test Order\");",
+									"    pm.expect(jsonData.orderFee).to.eql(99.99);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/orders/{{order_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders", "{{order_id}}"]
+						},
+						"description": "Verify order can be retrieved with correct details"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 3: Complete order flow from cart creation to order placement"
+		},
+		{
+			"name": "E2E Test 4: Payment Processing Flow",
+			"item": [
+				{
+					"name": "4.1 Create Payment for Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Payment created successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('paymentId');",
+									"    pm.expect(jsonData).to.have.property('isPayed');",
+									"    pm.expect(jsonData).to.have.property('paymentStatus');",
+									"    ",
+									"    // Response might have order or orderDto",
+									"    var order = jsonData.order || jsonData.orderDto;",
+									"    pm.expect(order).to.exist;",
+									"    pm.expect(order.orderId).to.eql(parseInt(pm.collectionVariables.get(\"order_id\")));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isPayed\": false,\n  \"paymentStatus\": \"NOT_STARTED\",\n  \"order\": {\n    \"orderId\": {{order_id}}\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/payments",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payments"]
+						},
+						"description": "Process payment for the created order via payment-service"
+					},
+					"response": []
+				},
+				{
+					"name": "4.2 Verify Payment Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Payment exists for order\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('collection');",
+									"    pm.expect(jsonData.collection).to.be.an('array');",
+									"    ",
+									"    // Find the payment for our specific order",
+									"    var orderId = parseInt(pm.collectionVariables.get(\"order_id\"));",
+									"    var payment = jsonData.collection.find(p => {",
+									"        var order = p.order || p.orderDto;",
+									"        return order && order.orderId === orderId;",
+									"    });",
+									"    ",
+									"    pm.expect(payment).to.exist;",
+									"    pm.expect(payment).to.have.property('paymentId');",
+									"    pm.expect(payment).to.have.property('isPayed');",
+									"    pm.expect(payment).to.have.property('paymentStatus');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/payments?orderId={{order_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payments"],
+							"query": [
+								{
+									"key": "orderId",
+									"value": "{{order_id}}"
+								}
+							]
+						},
+						"description": "Verify payment was processed correctly"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 4: Payment processing flow validating payment-service and order-service integration"
+		},
+		{
+			"name": "E2E Test 5: Shipping and Order Fulfillment Flow",
+			"item": [
+				{
+					"name": "5.1 Create Shipping Record",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Shipping created successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('productId');",
+									"    pm.expect(jsonData.productId).to.eql(parseInt(pm.collectionVariables.get(\"product_id\")));",
+									"    pm.expect(jsonData).to.have.property('orderId');",
+									"    pm.expect(jsonData.orderId).to.eql(parseInt(pm.collectionVariables.get(\"order_id\")));",
+									"    pm.expect(jsonData).to.have.property('orderedQuantity');",
+									"    pm.expect(jsonData.orderedQuantity).to.eql(2);",
+									"    ",
+									"    // Response includes expanded product and order objects",
+									"    pm.expect(jsonData).to.have.property('product');",
+									"    pm.expect(jsonData).to.have.property('order');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": {{product_id}},\n  \"orderId\": {{order_id}},\n  \"orderedQuantity\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/shippings",
+							"host": ["{{base_url}}"],
+							"path": ["api", "shippings"]
+						},
+						"description": "Create shipping record for the order via shipping-service"
+					},
+					"response": []
+				},
+				{
+					"name": "5.2 Get All Shippings for Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Shipping records exist\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    // Response might be array or object with collection",
+									"    var shippings = jsonData.collection || jsonData;",
+									"    pm.expect(shippings).to.be.an('array');",
+									"    pm.expect(shippings.length).to.be.greaterThan(0);",
+									"});",
+									"",
+									"pm.test(\"Shipping contains order reference\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var shippings = jsonData.collection || jsonData;",
+									"    var orderId = parseInt(pm.collectionVariables.get(\"order_id\"));",
+									"    var shipping = shippings.find(s => s.orderId === orderId);",
+									"    pm.expect(shipping).to.not.be.undefined;",
+									"    pm.expect(shipping.productId).to.eql(parseInt(pm.collectionVariables.get(\"product_id\")));",
+									"    pm.expect(shipping.orderedQuantity).to.eql(2);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/shippings",
+							"host": ["{{base_url}}"],
+							"path": ["api", "shippings"]
+						},
+						"description": "Verify shipping record was created and can be retrieved"
+					},
+					"response": []
+				},
+				{
+					"name": "5.3 Verify Complete Order Flow",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Order exists with all related data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.orderId).to.eql(parseInt(pm.collectionVariables.get(\"order_id\")));",
+									"    pm.expect(jsonData).to.have.property('orderDesc');",
+									"    pm.expect(jsonData.orderDesc).to.eql('E2E Test Order');",
+									"    ",
+									"    // Cart might be cart or cartDto",
+									"    var cart = jsonData.cart || jsonData.cartDto;",
+									"    pm.expect(cart).to.exist;",
+									"    pm.expect(cart.cartId).to.eql(parseInt(pm.collectionVariables.get(\"cart_id\")));",
+									"});",
+									"",
+									"pm.test(\"Complete E2E flow validation\", function () {",
+									"    pm.expect(pm.collectionVariables.get(\"user_id\")).to.not.be.empty;",
+									"    pm.expect(pm.collectionVariables.get(\"product_id\")).to.not.be.empty;",
+									"    pm.expect(pm.collectionVariables.get(\"order_id\")).to.not.be.empty;",
+									"    pm.expect(pm.collectionVariables.get(\"cart_id\")).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/orders/{{order_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders", "{{order_id}}"]
+						},
+						"description": "Final verification that complete order flow from user registration to shipping was successful"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 5: Complete order fulfillment including shipping-service validation and end-to-end flow verification"
+		},
+		{
+			"name": "E2E Test 6: Cleanup - Delete Test Data",
+			"item": [
+				{
+					"name": "6.1 Get Payment ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const jsonData = pm.response.json();",
+									"let payments = Array.isArray(jsonData) ? jsonData : (jsonData.collection || []);",
+									"",
+									"pm.test(\"Payment found for order\", function () {",
+									"    const payment = payments.find(p => p.order && p.order.orderId == pm.collectionVariables.get('order_id'));",
+									"    pm.expect(payment).to.exist;",
+									"    pm.collectionVariables.set('payment_id', payment.paymentId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/payments",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payments"]
+						},
+						"description": "Get payment ID before deletion"
+					},
+					"response": []
+				},
+				{
+					"name": "6.2 Delete Favourite",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Favourite deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/favourites/{{user_id}}/{{product_id}}/{{like_date}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "favourites", "{{user_id}}", "{{product_id}}", "{{like_date}}"]
+						},
+						"description": "Delete the favourite created during E2E tests using path parameters"
+					},
+					"response": []
+				},
+				{
+					"name": "6.3 Delete Shipping",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Shipping deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"productId\": {{product_id}},\n\t\"orderId\": {{order_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/shippings/delete",
+							"host": ["{{base_url}}"],
+							"path": ["api", "shippings", "delete"]
+						},
+						"description": "Delete the shipping/order item created during E2E tests using OrderItemId in body"
+					},
+					"response": []
+				},
+				{
+					"name": "6.4 Delete Payment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Payment deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/payments/{{payment_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payments", "{{payment_id}}"]
+						},
+						"description": "Delete the payment created during E2E tests"
+					},
+					"response": []
+				},
+				{
+					"name": "6.5 Delete Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Order deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/orders/{{order_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders", "{{order_id}}"]
+						},
+						"description": "Delete the order created during E2E tests"
+					},
+					"response": []
+				},
+				{
+					"name": "6.6 Delete Cart",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Cart deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/carts/{{cart_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "carts", "{{cart_id}}"]
+						},
+						"description": "Delete the cart created during E2E tests"
+					},
+					"response": []
+				},
+				{
+					"name": "6.7 Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User deleted successfully\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "{{user_id}}"]
+						},
+						"description": "Delete the test user created during E2E tests (also deletes addresses and credentials via JPA cascade)"
+					},
+					"response": []
+				}
+			],
+			"description": "E2E Test 6: Cleanup all test data created during the E2E flow to keep databases clean across all microservices"
+		}
+	]
+}

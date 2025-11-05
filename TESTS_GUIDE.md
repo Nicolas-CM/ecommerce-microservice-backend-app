@@ -705,24 +705,157 @@ class UserRegistrationFlowTest {
 
 ## ⚡ Pruebas de Rendimiento con Locust
 
-El archivo locustfile.py ya está configurado. Para ejecutarlo:
+El archivo `locustfile.py` ya está configurado. Para ejecutarlo:
+
+### Paso 1: Crear y activar entorno virtual Python
+
+Es recomendable usar un entorno virtual para aislar las dependencias:
 
 ```bash
-# Instalar Locust si no está instalado
-pip install locust
+# Crear entorno virtual en la raíz del proyecto (si no existe)
+python -m venv .venv
 
-# Ejecutar pruebas de rendimiento
+# Activar entorno virtual
+# En Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+
+# En Windows (CMD):
+.venv\Scripts\activate.bat
+
+# En Linux/Mac:
+source .venv/bin/activate
+
+# Verificar que está activado (debe aparecer (.venv) en el prompt)
+```
+
+### Paso 2: Instalar Locust
+
+```bash
+# IMPORTANTE: Python 3.14 es muy nuevo y tiene problemas de compatibilidad
+# Solución 1 (RECOMENDADA): Instalar versión anterior compatible de Locust
+pip install "locust==2.29.1"
+
+# Si el anterior falla, prueba con versión aún más estable:
+pip install "locust==2.15.1"
+
+# Verificar instalación
+locust --version
+
+# Nota: Las versiones antiguas de Locust funcionan perfectamente para nuestras pruebas
+# y no requieren Microsoft Visual C++ Build Tools
+```
+
+**Solución alternativa si necesitas la versión más reciente:**
+
+Opción A: Instalar Microsoft Visual C++ Build Tools (proceso largo ~2GB):
+1. Descargar de: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+2. Instalar "Desktop development with C++"
+3. Reiniciar y ejecutar: `pip install locust`
+
+Opción B: Usar Python 3.11 o 3.10 (versiones más estables):
+```bash
+# Desinstalar .venv actual
+deactivate
+rmdir /s .venv
+
+# Instalar Python 3.11 desde https://www.python.org/downloads/
+# Crear nuevo .venv con Python 3.11
+python3.11 -m venv .venv
+.venv\Scripts\activate.bat
+pip install locust
+```
+
+**Opción C (MÁS RÁPIDA): Usar Locust sin gevent (modo básico)**
+```bash
+# Instalar solo dependencias mínimas
+pip install flask requests msgpack pyzmq
+pip install --no-deps locust
+
+# Nota: Sin gevent, Locust usa threading en lugar de greenlets
+# Esto reduce el rendimiento máximo pero es suficiente para pruebas normales
+```
+
+### Paso 3: Ejecutar pruebas de rendimiento
+
+```bash
+# Navegar a la carpeta de pruebas de rendimiento
 cd tests/performance
 
-# Con UI web (recomendado para análisis)
+# Opción 1: Con interfaz web (RECOMENDADO para análisis visual)
 locust -f locustfile.py --host http://localhost:8080
 
 # Abrir http://localhost:8089 en el navegador
-# Configurar: Number of users: 50, Spawn rate: 5, Host: http://localhost:8080
+# Configurar parámetros en la UI:
+#   - Number of users: 50 (usuarios totales a simular)
+#   - Spawn rate: 5 (usuarios nuevos por segundo)
+#   - Host: http://localhost:8080 (ya configurado)
+# Hacer clic en "Start swarming" y observar resultados en tiempo real
 
-# O ejecutar headless
+# Opción 2: Modo headless (sin interfaz, para CI/CD)
 locust -f locustfile.py --headless --users 50 --spawn-rate 5 --run-time 5m --host http://localhost:8080
+
+# Opción 3: Headless con reporte HTML
+locust -f locustfile.py --headless --users 50 --spawn-rate 5 --run-time 5m --host http://localhost:8080 --html=performance-report.html
 ```
+
+### Paso 4: Interpretar resultados
+
+La interfaz web de Locust muestra:
+
+- **Statistics**: Peticiones totales, tiempos de respuesta, RPS (requests per second)
+- **Charts**: Gráficos en tiempo real de:
+  - Total Requests per Second
+  - Response Times (ms)
+  - Number of Users
+- **Failures**: Errores encontrados durante la prueba
+- **Exceptions**: Excepciones detalladas
+- **Download Data**: Exportar datos en CSV para análisis posterior
+
+### Configuración avanzada
+
+Puedes modificar los parámetros directamente en el comando:
+
+```bash
+# Prueba de carga ligera (10 usuarios)
+locust -f locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host http://localhost:8080
+
+# Prueba de carga media (100 usuarios)
+locust -f locustfile.py --headless --users 100 --spawn-rate 10 --run-time 5m --host http://localhost:8080
+
+# Prueba de carga pesada (500 usuarios)
+locust -f locustfile.py --headless --users 500 --spawn-rate 25 --run-time 10m --host http://localhost:8080
+
+# Prueba de estrés (1000 usuarios)
+locust -f locustfile.py --headless --users 1000 --spawn-rate 50 --run-time 10m --host http://localhost:8080
+```
+
+### Arquitectura de pruebas
+
+El `locustfile.py` incluye 3 tipos de usuarios:
+
+1. **EcommerceUser** (peso: 10)
+   - Navega productos (tarea más común)
+   - Ve detalles de productos
+   - Accede a endpoints públicos
+   - Simula usuarios anónimos navegando
+
+2. **AuthenticatedUser** (peso: 2)
+   - Se autentica al inicio
+   - Realiza operaciones protegidas
+   - Ve órdenes, carritos, favoritos propios
+   - Simula usuarios registrados comprando
+
+3. **AdminUser** (peso: 1)
+   - Monitorea salud del sistema
+   - Verifica endpoints administrativos
+   - Simula staff revisando el sistema
+
+### Notas importantes
+
+- **Servicios deben estar corriendo**: Asegúrate de que todos los microservicios están UP
+- **Port forwarding (si usas Kubernetes)**: `kubectl port-forward -n ecommerce svc/api-gateway 8080:8080`
+- **Recursos del sistema**: Pruebas con muchos usuarios consumen CPU y RAM
+- **Datos de prueba**: Las pruebas usan credenciales `admin/admin` para autenticación
 
 ## 📊 Resumen de Implementación
 
