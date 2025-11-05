@@ -5,7 +5,7 @@ on:
     branches: [ dev ]
   pull_request:
     branches: [ dev ]
-  workflow_dispatch:  # Permite ejecución manual
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,25 +15,31 @@ jobs:
     strategy:
       matrix:
         service: [
+          'api-gateway',
           'user-service',
           'product-service',
-          'order-service'
+          'order-service',
+          'payment-service',
+          'shipping-service',
+          'favourite-service',
+          'proxy-client'
         ]
     
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v3
       
-      - name: ☕ Set up JDK 21
+      - name: ☕ Set up JDK 11
         uses: actions/setup-java@v3
         with:
-          java-version: '21'
+          java-version: '11'
           distribution: 'temurin'
           cache: 'maven'
       
       - name: 🔨 Build ${{ matrix.service }}
         run: |
           cd ${{ matrix.service }}
+          chmod +x ../mvnw
           ../mvnw clean package -DskipTests
       
       - name: 📦 Upload artifact
@@ -50,22 +56,23 @@ jobs:
     
     strategy:
       matrix:
-        service: ['user-service', 'product-service', 'order-service']
+        service: ['user-service', 'product-service', 'order-service', 'payment-service', 'shipping-service', 'favourite-service']
     
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v3
       
-      - name: ☕ Set up JDK 21
+      - name: ☕ Set up JDK 11
         uses: actions/setup-java@v3
         with:
-          java-version: '21'
+          java-version: '11'
           distribution: 'temurin'
           cache: 'maven'
       
       - name: 🧪 Run Unit Tests for ${{ matrix.service }}
         run: |
           cd ${{ matrix.service }}
+          chmod +x ../mvnw
           ../mvnw test
       
       - name: 📊 Publish Test Results
