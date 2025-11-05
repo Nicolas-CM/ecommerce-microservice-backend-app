@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
-    name: Build and Test Services
+  deploy-to-minikube:
+    name: Build and Deploy to Local Minikube
     runs-on: self-hosted
     
     steps:
@@ -50,26 +50,35 @@ jobs:
         }
         
         Write-Host "✅ All microservices built successfully!"
-        
-    #- name: 🧪 Run Unit Tests
-    #  shell: powershell
-    #  run: |
-    #    Write-Host "Running unit tests..."
-    #    mvn test
-        
-    - name: ✅ Tests completed
+    
+    - name: � Verify JAR files exist
       shell: powershell
       run: |
-        Write-Host "✅ All tests passed successfully!"
+        Write-Host "Verifying that all JAR files were built..."
         
-  deploy-to-minikube:
-    name: Deploy to Local Minikube
-    needs: build-and-test
-    runs-on: self-hosted
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v3
+        $services = @(
+          "api-gateway",
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service",
+          "proxy-client"
+        )
+        
+        foreach ($service in $services) {
+          $jarPath = "$service\target\$service-v0.1.0.jar"
+          if (Test-Path $jarPath) {
+            $size = (Get-Item $jarPath).Length / 1MB
+            Write-Host "✅ Found: $jarPath ($([math]::Round($size, 2)) MB)"
+          } else {
+            Write-Host "❌ Missing: $jarPath"
+            exit 1
+          }
+        }
+        
+        Write-Host "✅ All JAR files exist!"
       
     - name: 🔧 Setup kubectl
       shell: powershell
