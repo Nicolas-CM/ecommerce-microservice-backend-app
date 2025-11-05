@@ -309,7 +309,6 @@ jobs:
           
           if (Get-Command newman -ErrorAction SilentlyContinue) {
             newman run ecommerce-e2e-tests.postman_collection.json `
-              --environment ecommerce-e2e-environment.postman_environment.json `
               --reporters cli,json `
               --reporter-json-export ../../newman-results.json `
               --timeout-request 10000 `
