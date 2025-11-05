@@ -348,28 +348,6 @@ jobs:
     
     steps:
     - name: Print summary
-      shell: bash
+      shell: powershell
       run: |
-        echo ""
-        echo "========================================================"
-        echo ""
-        echo "🎉 MASTER PRODUCTION PIPELINE COMPLETED"
-        echo ""
-        echo "========================================================"
-        echo ""
-        echo "Phase 1 - Build & Unit Tests: success"
-        echo "Phase 2 - Deploy to Kubernetes: success"
-        echo "Phase 3 - System Tests: success"
-        echo ""
-        echo "========================================================"
-        echo ""
-        echo "📦 Namespace: ecommerce"
-        echo "🌐 API Gateway: http://localhost:8080/app"
-        echo ""
-        echo "To access services, run:"
-        echo "kubectl port-forward -n ecommerce svc/api-gateway 8080:8080"
-        echo ""
-        echo "========================================================"
-        echo ""
-
-
+        Write-Host "🎉 MASTER PRODUCTION PIPELINE COMPLETED"
