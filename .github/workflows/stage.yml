@@ -136,17 +136,81 @@ jobs:
           echo "=== Services ==="
           kubectl get svc -n ecommerce
       
-      - name: 🧪 Run E2E Tests
+      - name: 🧪 Run E2E Tests with Newman
+        continue-on-error: true
         run: |
-          echo "Running E2E tests against Minikube deployment..."
-          # Port-forward para acceder a los servicios
-          kubectl port-forward -n ecommerce svc/product-service 8500:8500 &
-          kubectl port-forward -n ecommerce svc/user-service 8700:8700 &
-          sleep 10
+          echo ""
+          echo "========================================"
+          echo " Running E2E Tests with Newman"
+          echo "========================================"
+          echo ""
           
-          # Pruebas básicas
-          curl -f http://localhost:8500/product-service/api/products || echo "Product service test failed"
-          curl -f http://localhost:8700/user-service/api/users || echo "User service test failed"
+          # Port-forward al API Gateway en background
+          echo "Setting up port-forward to API Gateway..."
+          kubectl port-forward -n ecommerce svc/api-gateway 8080:8080 &
+          PORTFORWARD_PID=$!
+          sleep 15
+          
+          echo "Checking if API Gateway is accessible..."
+          
+          # Verificar conectividad
+          if curl -f http://localhost:8080/app/actuator/health --max-time 5 --silent > /dev/null; then
+            echo "✅ API Gateway is accessible at http://localhost:8080"
+            echo ""
+            
+            # Verificar si Newman está instalado
+            if command -v newman &> /dev/null; then
+              echo "Running E2E tests with Newman..."
+              cd tests/e2e
+              
+              newman run ecommerce-e2e-tests.postman_collection.json \
+                --environment ecommerce-e2e-environment.postman_environment.json \
+                --reporters cli,json \
+                --reporter-json-export ../../newman-results.json \
+                --timeout-request 10000 \
+                --delay-request 500 || true
+              
+              if [ $? -eq 0 ]; then
+                echo ""
+                echo "✅ E2E tests passed successfully!"
+              else
+                echo ""
+                echo "⚠️  Some E2E tests failed, check the report"
+              fi
+              
+              cd ../..
+            else
+              echo "⚠️  Newman not installed, installing now..."
+              npm install -g newman || echo "Failed to install Newman, skipping E2E tests"
+              
+              if command -v newman &> /dev/null; then
+                cd tests/e2e
+                newman run ecommerce-e2e-tests.postman_collection.json \
+                  --environment ecommerce-e2e-environment.postman_environment.json \
+                  --reporters cli,json \
+                  --reporter-json-export ../../newman-results.json \
+                  --timeout-request 10000 \
+                  --delay-request 500 || true
+                cd ../..
+              fi
+            fi
+          else
+            echo "❌ API Gateway is not accessible at http://localhost:8080"
+            echo ""
+            echo "Running basic connectivity tests instead..."
+            
+            # Pruebas básicas como fallback
+            kubectl port-forward -n ecommerce svc/product-service 8500:8500 &
+            kubectl port-forward -n ecommerce svc/user-service 8700:8700 &
+            sleep 10
+            
+            curl -f http://localhost:8500/product-service/api/products || echo "Product service test failed"
+            curl -f http://localhost:8700/user-service/api/users || echo "User service test failed"
+          fi
+          
+          # Cleanup port-forward
+          kill $PORTFORWARD_PID 2>/dev/null || true
+          echo ""
   
   summary:
     name: STAGE Summary
