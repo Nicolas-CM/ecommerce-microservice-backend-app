@@ -22,18 +22,21 @@ jobs:
         cache: 'maven'
     
     - name: 🔨 Build all services with Maven
+      shell: powershell
       run: |
-        echo "Building all microservices..."
+        Write-Host "Building all microservices..."
         mvn clean package -DskipTests
         
     - name: 🧪 Run Unit Tests
+      shell: powershell
       run: |
-        echo "Running unit tests..."
+        Write-Host "Running unit tests..."
         mvn test
         
     - name: ✅ Tests completed
+      shell: powershell
       run: |
-        echo "✅ All tests passed successfully!"
+        Write-Host "✅ All tests passed successfully!"
         
   deploy-to-minikube:
     name: Deploy to Local Minikube
@@ -45,14 +48,16 @@ jobs:
       uses: actions/checkout@v3
       
     - name: 🔧 Setup kubectl
+      shell: powershell
       run: |
-        echo "Checking kubectl version..."
+        Write-Host "Checking kubectl version..."
         kubectl version --client
         
     - name: 🐳 Build Docker images
+      shell: powershell
       run: |
-        echo "Building Docker images for Minikube..."
-        eval $(minikube docker-env)
+        Write-Host "Building Docker images for Minikube..."
+        & minikube -p minikube docker-env --shell powershell | Invoke-Expression
         docker build -t api-gateway:latest ./api-gateway
         docker build -t user-service:latest ./user-service
         docker build -t product-service:latest ./product-service
@@ -61,38 +66,42 @@ jobs:
         docker build -t shipping-service:latest ./shipping-service
         docker build -t favourite-service:latest ./favourite-service
         docker build -t proxy-client:latest ./proxy-client
-        echo "✅ Docker images built successfully!"
+        Write-Host "✅ Docker images built successfully!"
         
     - name: 🚀 Deploy to Minikube
+      shell: powershell
       run: |
-        echo "Deploying to Minikube namespace 'ecommerce'..."
+        Write-Host "Deploying to Minikube namespace 'ecommerce'..."
         kubectl apply -f k8s/base/namespace.yaml
         kubectl apply -f k8s/base/configmaps.yaml
         kubectl apply -f k8s/base/
-        echo "Waiting for deployments to be ready..."
-        kubectl wait --for=condition=ready pod -l app=api-gateway -n ecommerce --timeout=300s || true
-        echo "✅ Deployment completed!"
+        Write-Host "Waiting for deployments to be ready..."
+        kubectl wait --for=condition=ready pod -l app=api-gateway -n ecommerce --timeout=300s
+        if ($LASTEXITCODE -ne 0) { Write-Host "Warning: Some pods may not be ready yet" }
+        Write-Host "✅ Deployment completed!"
         
     - name: 🔍 Verify Deployment
+      shell: powershell
       run: |
-        echo "Verifying deployment status..."
+        Write-Host "Verifying deployment status..."
         kubectl get pods -n ecommerce
         kubectl get svc -n ecommerce
         
     - name: 🎉 Success Message
+      shell: powershell
       run: |
-        echo ""
-        echo "╔════════════════════════════════════════════════════╗"
-        echo "║                                                    ║"
-        echo "║   ✅ PIPELINE EJECUTADO EXITOSAMENTE ✅           ║"
-        echo "║                                                    ║"
-        echo "║   🚀 Servicios desplegados en Minikube           ║"
-        echo "║   📦 Namespace: ecommerce                         ║"
-        echo "║   🌐 API Gateway: http://localhost:8080/app       ║"
-        echo "║                                                    ║"
-        echo "║   Para acceder ejecuta:                           ║"
-        echo "║   kubectl port-forward -n ecommerce               ║"
-        echo "║        svc/api-gateway 8080:8080                  ║"
-        echo "║                                                    ║"
-        echo "╚════════════════════════════════════════════════════╝"
-        echo ""
+        Write-Host ""
+        Write-Host "╔════════════════════════════════════════════════════╗"
+        Write-Host "║                                                    ║"
+        Write-Host "║   ✅ PIPELINE EJECUTADO EXITOSAMENTE ✅           ║"
+        Write-Host "║                                                    ║"
+        Write-Host "║   🚀 Servicios desplegados en Minikube           ║"
+        Write-Host "║   📦 Namespace: ecommerce                         ║"
+        Write-Host "║   🌐 API Gateway: http://localhost:8080/app       ║"
+        Write-Host "║                                                    ║"
+        Write-Host "║   Para acceder ejecuta:                           ║"
+        Write-Host "║   kubectl port-forward -n ecommerce               ║"
+        Write-Host "║        svc/api-gateway 8080:8080                  ║"
+        Write-Host "║                                                    ║"
+        Write-Host "╚════════════════════════════════════════════════════╝"
+        Write-Host ""
