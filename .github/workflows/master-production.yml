@@ -295,10 +295,49 @@ jobs:
         Write-Host "========================================" -ForegroundColor Cyan
         Write-Host ""
         
-        Write-Host "Note: E2E tests require API Gateway port-forward" -ForegroundColor Yellow
-        Write-Host "Run: kubectl port-forward -n ecommerce svc/api-gateway 8080:8080" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "⚠️  Skipping E2E tests (requires manual port-forward setup)" -ForegroundColor Yellow
+        Write-Host "Checking if API Gateway is accessible..." -ForegroundColor Yellow
+        
+        # Verificar si el port-forward está activo
+        try {
+          $response = Invoke-WebRequest -Uri "http://localhost:8080/app/actuator/health" -TimeoutSec 5 -UseBasicParsing
+          Write-Host "✅ API Gateway is accessible at http://localhost:8080" -ForegroundColor Green
+          Write-Host ""
+          
+          # Ejecutar tests E2E con Newman
+          Write-Host "Running E2E tests with Newman..." -ForegroundColor Yellow
+          cd tests/e2e
+          
+          if (Get-Command newman -ErrorAction SilentlyContinue) {
+            newman run ecommerce-e2e-tests.postman_collection.json `
+              --environment ecommerce-e2e-environment.postman_environment.json `
+              --reporters cli,json `
+              --reporter-json-export ../../newman-results.json `
+              --timeout-request 10000 `
+              --delay-request 500
+            
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host ""
+              Write-Host "✅ E2E tests passed successfully!" -ForegroundColor Green
+            } else {
+              Write-Host ""
+              Write-Host "⚠️  Some E2E tests failed, check the report" -ForegroundColor Yellow
+            }
+          } else {
+            Write-Host "⚠️  Newman not installed, skipping E2E tests" -ForegroundColor Yellow
+            Write-Host "To install: npm install -g newman" -ForegroundColor Yellow
+          }
+          
+          cd ../..
+          
+        } catch {
+          Write-Host "❌ API Gateway is not accessible at http://localhost:8080" -ForegroundColor Red
+          Write-Host ""
+          Write-Host "⚠️  Please run port-forward manually in another terminal:" -ForegroundColor Yellow
+          Write-Host "kubectl port-forward -n ecommerce svc/api-gateway 8080:8080" -ForegroundColor Yellow
+          Write-Host ""
+          Write-Host "Skipping E2E tests..." -ForegroundColor Yellow
+        }
+        
         Write-Host ""
 
   summary:
