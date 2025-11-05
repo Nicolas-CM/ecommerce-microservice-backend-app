@@ -123,10 +123,4 @@ jobs:
     - name: 🎉 Success Message
       shell: powershell
       run: |
-        Write-Host ""
-        Write-Host "╔════════════════════════════════════════════════════╗"
-        Write-Host "║                                                    ║"
-        Write-Host "║       PIPELINE EJECUTADO EXITOSAMENTE              ║"
-        Write-Host "║                                                    ║"
-        Write-Host "╚════════════════════════════════════════════════════╝"
-        Write-Host ""
+        Write-Host "✅ PIPELINE EJECUTADO EXITOSAMENTE "
