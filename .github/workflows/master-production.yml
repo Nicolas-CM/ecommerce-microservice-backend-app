@@ -347,20 +347,29 @@ jobs:
     if: always()
     
     steps:
-    - name: 📋 Generate Pipeline Summary
+    - name: Print summary
       shell: bash
       run: |
-        Write-Host ""
-        Write-Host "🎉 MASTER PRODUCTION PIPELINE COMPLETED"
-        Write-Host ""
-        Write-Host " Phase 1 - Build & Unit Tests: success"
-        Write-Host " Phase 2 - Deploy to Kubernetes: success"
-        Write-Host " Phase 3 - System Tests: success"
-        Write-Host ""
-        Write-Host " 📦 Namespace: ecommerce"
-        Write-Host " 🌐 API Gateway: http://localhost:8080/app"
-        Write-Host ""
-        Write-Host " To access services, run:"
-        Write-Host " kubectl port-forward -n ecommerce svc/api-gateway 8080:8080"
-        Write-Host ""
+        echo ""
+        echo "========================================================"
+        echo ""
+        echo "🎉 MASTER PRODUCTION PIPELINE COMPLETED"
+        echo ""
+        echo "========================================================"
+        echo ""
+        echo "Phase 1 - Build & Unit Tests: success"
+        echo "Phase 2 - Deploy to Kubernetes: success"
+        echo "Phase 3 - System Tests: success"
+        echo ""
+        echo "========================================================"
+        echo ""
+        echo "📦 Namespace: ecommerce"
+        echo "🌐 API Gateway: http://localhost:8080/app"
+        echo ""
+        echo "To access services, run:"
+        echo "kubectl port-forward -n ecommerce svc/api-gateway 8080:8080"
+        echo ""
+        echo "========================================================"
+        echo ""
+
 
