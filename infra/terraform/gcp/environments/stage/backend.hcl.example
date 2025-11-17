@@ -1,0 +1,2 @@
+bucket = "<nombre-del-bucket>"
+prefix = "gcp/stage"
