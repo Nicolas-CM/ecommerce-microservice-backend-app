@@ -1,3 +1,6 @@
+# Ignorar todos los ejecutables y carpetas .terraform en cualquier subcarpeta
+**/.terraform/
+**/*.exe
 # Ignorar carpetas y archivos generados por Terraform
 .terraform/
 infra/terraform/**/.terraform/
