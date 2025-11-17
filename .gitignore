@@ -1,3 +1,10 @@
+# Ignorar carpetas y archivos generados por Terraform
+.terraform/
+infra/terraform/**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.log
+*.exe
 HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
