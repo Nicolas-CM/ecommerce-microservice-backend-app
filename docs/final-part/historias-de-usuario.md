@@ -1,273 +1,225 @@
-1. Metodología Ágil y Estrategia de Branching (10%)
+## [Volver al README](../../README.md)
 
-HU-01 – Implementación de metodología ágil
+# Backlog del Proyecto E-commerce Microservices
 
-Como equipo de desarrollo
-Quiero trabajar bajo una metodología ágil (Scrum o Kanban)
-Para organizar el proyecto de manera iterativa y mejorar la entrega continua.
+Este documento presenta el backlog del proyecto estructurado según estándares de la industria, separando claramente las **Historias de Usuario** (valor de negocio) de las **Tareas Técnicas y Enablers** (infraestructura y soporte).
 
-Criterios de aceptación
+---
 
-Given un proyecto en desarrollo
-When se planifica el trabajo
-Then debe existir un tablero ágil con tareas organizadas en To Do, Doing, Done.
+## 1. Product Backlog (Historias de Usuario)
 
-Se deben documentar sprints o ciclos.
+### HU-01: Exploración de Productos
+**Como** cliente de la tienda,
+**Quiero** ver un listado de productos disponibles con sus precios e imágenes,
+**Para** decidir qué artículos comprar.
 
-Tareas
+**Criterios de Aceptación:**
 
-Configurar tablero en Jira / Trello / GitHub Projects.
+- [ ] El sistema muestra una lista paginada de productos (endpoint `GET /product-service/products`).
+- [ ] Cada tarjeta de producto incluye: nombre, precio, imagen y stock disponible.
+- [ ] El tiempo de carga del listado es menor a 2 segundos.
 
-Crear backlog inicial.
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Definir ceremonias: sprint planning, daily, sprint review, retrospectiva.
+### HU-02: Detalle de Producto
+**Como** cliente,
+**Quiero** ver los detalles específicos de un producto,
+**Para** conocer sus características antes de añadirlo al carrito.
 
-Documentar al menos 2 iteraciones completas.
+**Criterios de Aceptación:**
 
-HU-02 – Estrategia de branching
+- [ ] Al seleccionar un producto, se muestra su descripción completa, categoría y especificaciones.
+- [ ] Se muestra un mensaje de error amigable si el producto no existe (404).
+- [ ] Endpoint asociado: `GET /product-service/products/{id}`.
 
-Como desarrollador
-Quiero una estrategia clara de branching (GitFlow o GitHub Flow)
-Para organizar el código y evitar conflictos en el repositorio.
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Criterios de aceptación
+### HU-03: Gestión de Favoritos
+**Como** cliente registrado,
+**Quiero** agregar productos a mi lista de favoritos,
+**Para** guardarlos y comprarlos en el futuro sin tener que buscarlos de nuevo.
 
-Documentación visible en el repo (/docs/branching.md).
+**Criterios de Aceptación:**
 
-Flujo debe incluir ramas: main, develop, feature/*, release/*, hotfix/*.
+- [ ] El usuario puede agregar un producto a favoritos (endpoint `POST /favourite-service/add`).
+- [ ] El usuario puede ver su lista de favoritos (endpoint `GET /favourite-service/list`).
+- [ ] Si el usuario no está autenticado, se le redirige al login.
 
-Deben existir ejemplos de PR y merges.
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Tareas
+### HU-04: Creación de Pedidos
+**Como** cliente,
+**Quiero** realizar un pedido con los productos seleccionados,
+**Para** recibir los artículos en mi dirección.
 
-Crear archivo de documentación.
+**Criterios de Aceptación:**
 
-Configurar reglas de protección de ramas.
+- [ ] El sistema permite crear una orden con uno o más productos (endpoint `POST /order-service/orders`).
+- [ ] Se valida que haya stock suficiente antes de confirmar la orden.
+- [ ] La orden se crea con estado inicial "PENDING".
+- [ ] Se genera un ID único de orden para seguimiento.
 
-Definir políticas de merge.
+**Prioridad:** Media (P2) | **Estimación:** S
 
-HU-03 – Historias de usuario y criterios de aceptación
+### HU-05: Historial de Pedidos
+**Como** cliente,
+**Quiero** ver el estado de mis pedidos anteriores,
+**Para** hacer seguimiento a mis compras y validar lo que he gastado.
 
-Como Product Owner
-Quiero documentar las historias de usuario del proyecto
-Para garantizar que el desarrollo tenga claridad y trazabilidad.
+**Criterios de Aceptación:**
 
-Criterios de aceptación
+- [ ] El usuario puede ver un listado de sus órdenes pasadas.
+- [ ] Cada orden muestra su estado actual (Pending, Shipped, Delivered).
+- [ ] Endpoint asociado: `GET /order-service/orders/user/{userId}`.
 
-Cada historia debe incluir: descripción, criterios Given/When/Then, tareas técnicas.
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Historias asociadas a un sprint.
+### HU-06: Actualización de Perfil
 
-2. Infraestructura como Código con Terraform (20%)
-HU-04 – Infraestructura con Terraform
+**Como** cliente registrado,
+**Quiero** actualizar mi información personal (nombre, dirección),
+**Para** mantener mis datos de contacto y envío al día.
 
-Como ingeniero DevOps
-Quiero definir toda la infraestructura usando Terraform
-Para poder crear ambientes reproducibles y controlados.
+**Criterios de Aceptación:**
 
-Criterios de aceptación
+- [ ] El usuario puede modificar sus datos básicos (endpoint `PUT /user-service/users`).
+- [ ] Se validan los datos de entrada (ej. formato de email).
+- [ ] El usuario puede consultar su perfil actual (endpoint `GET /user-service/users/{userId}`).
 
-Estructura modular (/modules/*).
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Despliegue para ambientes: dev, stage, prod.
+### HU-07: Administración de Productos
 
-Estado remoto configurado (S3, GCS, Terraform Cloud).
+**Como** administrador del sistema,
+**Quiero** crear, actualizar y eliminar productos del catálogo,
+**Para** mantener la oferta comercial actualizada.
 
-Tareas
+**Criterios de Aceptación:**
 
-Crear módulos: network, security, compute, storage.
+- [ ] El administrador puede crear nuevos productos (endpoint `POST /product-service/products`).
+- [ ] El administrador puede actualizar precio y stock (endpoint `PUT /product-service/products`).
+- [ ] El administrador puede eliminar productos obsoletos (endpoint `DELETE /product-service/products/{id}`).
+- [ ] Estas operaciones requieren rol de ADMIN.
 
-Generar archivos main.tf, variables.tf, outputs.tf.
+**Prioridad:** Alta (P1) | **Estimación:** M
 
-Configurar backend remoto.
+### HU-08: Gestión de Usuarios
 
-Probar despliegue en al menos un ambiente.
+**Como** administrador,
+**Quiero** ver el listado de usuarios registrados y poder eliminarlos si es necesario,
+**Para** moderar la plataforma y gestionar cuentas.
 
-HU-05 – Documentación de arquitectura
+**Criterios de Aceptación:**
 
-Como equipo técnico
-Quiero diagramas de infraestructura
-Para entender visualmente la arquitectura implementada.
+- [ ] El administrador puede listar todos los usuarios (endpoint `GET /user-service/users`).
+- [ ] El administrador puede eliminar un usuario específico (endpoint `DELETE /user-service/users/{id}`).
+- [ ] Se debe paginar el listado de usuarios si son muchos.
 
-Criterios de aceptación
+**Prioridad:** Media (P2) | **Estimación:** S
 
-Diagrama debe incluir: redes, VMs/containers, balanceadores, seguridad.
+### HU-09: Gestión de Carrito de Compras
 
-Debe quedar almacenado en /docs/infra.
+**Como** cliente,
+**Quiero** agregar y gestionar productos en mi carrito de compras,
+**Para** revisar mi selección antes de proceder al pago.
 
-3. Patrones de Diseño (10%)
-HU-06 – Identificación de patrones existentes
+**Criterios de Aceptación:**
 
-Como arquitecto de software
-Quiero identificar los patrones ya presentes en el sistema
-Para mejorar la arquitectura general del proyecto.
+- [ ] El usuario puede ver su carrito (endpoint `GET /order-service/carts/{id}`).
+- [ ] El usuario puede agregar o actualizar items en el carrito (endpoint `POST /order-service/carts` o `PUT`).
+- [ ] El usuario puede vaciar o eliminar items del carrito (endpoint `DELETE /order-service/carts/{id}`).
 
-Criterios de aceptación
+**Prioridad:** Alta (P1) | **Estimación:** M
 
-Documento donde se describan patrones encontrados.
+### HU-10: Procesamiento de Pagos
 
-Debe incluir propósito, ventajas, desventajas.
+**Como** cliente,
+**Quiero** pagar mi pedido de forma segura,
+**Para** completar la compra.
 
-HU-07 – Implementación de patrones adicionales
+**Criterios de Aceptación:**
 
-Como desarrollador
-Quiero agregar al menos 3 patrones de diseño
-Para mejorar resiliencia, configuración y escalabilidad.
+- [ ] El usuario puede iniciar un pago para un pedido (endpoint `POST /payment-service/payments`).
+- [ ] El sistema valida la información del pago.
+- [ ] Se registra la transacción y se actualiza el estado del pedido.
+- [ ] El usuario puede ver el detalle de un pago (endpoint `GET /payment-service/payments/{id}`).
 
-Criterios de aceptación
+**Prioridad:** Alta (P1) | **Estimación:** M
 
-Debe existir al menos:
+---
 
-1 patrón de resiliencia → Circuit Breaker / Bulkhead
+## 2. Technical Backlog (Enablers & Tasks)
 
-1 patrón de configuración → External Config / Feature Toggle
+*Tareas técnicas, configuración de infraestructura y pipelines necesarias para soportar el producto.*
 
-1 patrón adicional
+### TASK-01: Infraestructura como Código (IaC) con Terraform
 
-Documentación del código nuevo.
+**Descripción:** Provisionar la infraestructura base necesaria para los ambientes de despliegue.
 
-4. CI/CD Avanzado (15%)
-HU-08 – Pipeline completo de CI/CD
+**Entregables:**
 
-Como ingeniero DevOps
-Quiero crear pipelines de CI/CD
-Para automatizar construcción, pruebas y despliegues.
+- Módulos Terraform creados para: Network, Compute, Storage.
+- Archivos de estado (`terraform.tfstate`) gestionados remotamente (S3/Terraform Cloud).
+- Ambientes `dev` y `stage` provisionados mediante scripts.
 
-Criterios de aceptación
+### TASK-02: Pipeline de CI/CD (Dev & Stage)
 
-Pipeline con etapas: build, test, scan, deploy.
+**Descripción:** Automatizar el ciclo de vida de construcción y despliegue de los microservicios.
 
-Ambientes independientes: dev → stage → prod.
+**Entregables:**
 
-Versionado semántico automático.
+- Workflow `.github/workflows/dev.yml`: Build Maven + Unit Tests (JUnit).
+- Workflow `.github/workflows/stage.yml`: Build Docker Images + Deploy a Minikube.
+- Publicación de artefactos de prueba (Surefire Reports).
 
-HU-09 – Integración de SonarQube y Trivy
+### TASK-03: Implementación de Patrones de Resiliencia
 
-Como desarrollador
-Quiero validar calidad y seguridad del código
-Para prevenir vulnerabilidades y errores.
+**Descripción:** Mejorar la estabilidad del sistema ante fallos de servicios dependientes.
 
-Criterios de aceptación
+**Entregables:**
 
-Análisis SonarQube ejecutándose en CI.
+- Implementación de **Circuit Breaker** (Resilience4j) en llamadas entre servicios.
+- Configuración de **Timeouts** y **Retries**.
+- Pruebas de caos simulando la caída de un servicio dependiente.
 
-Escaneo de contenedores con Trivy.
+### TASK-04: Observabilidad Centralizada
 
-Reportes generados automáticamente.
+**Descripción:** Implementar un stack de monitoreo para visualizar el estado del sistema.
 
-HU-10 – Notificaciones y aprobaciones
+**Entregables:**
 
-Como equipo de desarrollo
-Quiero tener alertas por fallos y aprobaciones manuales
-Para garantizar seguridad en despliegues.
+- **Prometheus** configurado para recolectar métricas de Spring Actuator.
+- **Grafana** con dashboards operativos (CPU, Memoria, Latencia HTTP).
+- **Zipkin/Jaeger** para tracing distribuido de peticiones.
 
-Criterios de aceptación
+### TASK-05: Pruebas E2E Automatizadas
 
-Notificaciones por email o Slack.
+**Descripción:** Validar los flujos críticos del negocio de punta a punta.
 
-Gate de aprobación para producción.
+**Entregables:**
 
-5. Pruebas Completas (15%)
-HU-11 – Pruebas unitarias
+- Colección de Postman (`tests/e2e/ecommerce-e2e-tests.postman_collection.json`) actualizada.
+- Ejecución automatizada con **Newman** en el pipeline de Stage.
+- Reporte de resultados en formato JSON/HTML.
 
-Como desarrollador
-Quiero pruebas unitarias en los microservicios
-Para validar la lógica individual.
+### TASK-06: Análisis de Calidad y Seguridad
 
-Criterios de aceptación
+**Descripción:** Asegurar la calidad del código y la seguridad de las imágenes Docker.
 
-Cobertura mínima (50–70%).
+**Entregables:**
 
-Pruebas ejecutadas en pipeline CI.
+- Integración con **SonarQube** para análisis estático de código.
+- Escaneo de vulnerabilidades en imágenes Docker usando **Trivy**.
+- Quality Gates definidos en el pipeline (fallar si hay vulnerabilidades críticas).
 
-HU-12 – Pruebas de integración
+### TASK-07: Documentación Técnica
 
-Como ingeniero de calidad (QA)
-Quiero pruebas entre servicios
-Para garantizar la correcta comunicación.
+**Descripción:** Generar documentación para facilitar el mantenimiento y onboarding.
 
-HU-13 – Pruebas E2E
+**Entregables:**
 
-Como usuario final
-Quiero validar flujos completos
-Para asegurar que todo funciona correctamente.
+- Diagramas de arquitectura (C4/UML) en `/docs`.
+- `README.md` actualizado con instrucciones de despliegue.
+- Documentación de APIs (Swagger/OpenAPI).
 
-HU-14 – Pruebas de rendimiento, estrés y seguridad
-
-Incluye:
-
-Locust
-
-OWASP ZAP
-
-Criterios de aceptación
-
-Reportes generados.
-
-Scripts almacenados en /tests.
-
-6. Change Management y Release Notes (5%)
-HU-15 – Gestión de cambios
-
-Como equipo DevOps
-Quiero un proceso formal de control de cambios
-Para evitar despliegues no autorizados.
-
-HU-16 – Release notes automáticos
-
-Como Product Owner
-Quiero que los releases se generen solos
-Para tener trazabilidad clara.
-
-7. Observabilidad y Monitoreo (10%)
-HU-17 – Stack Prometheus + Grafana
-
-Como operador del sistema
-Quiero monitoreo técnico
-Para visualizar comportamiento del sistema.
-
-HU-18 – ELK Stack
-
-Como equipo DevOps
-Quiero un sistema centralizado de logs
-Para investigar errores y auditorías.
-
-HU-19 – Tracing distribuido
-
-Como ingeniero
-Quiero Jaeger o Zipkin
-Para medir latencias entre microservicios.
-
-HU-20 – Alertas y health checks
-
-Como operador
-Quiero alertas y probes
-Para reaccionar rápidamente a incidentes.
-
-8. Seguridad (5%)
-HU-21 – Escaneo continuo de vulnerabilidades
-
-Como equipo de seguridad
-Quiero detectar riesgos
-Para proteger el sistema.
-
-HU-22 – Gestión de secretos y TLS
-
-Incluye:
-
-Vault / SSM / Secret Manager
-
-Certificados HTTPS
-
-9. Documentación y Presentación (10%)
-HU-23 – Documentación completa
-
-Como cualquier miembro del equipo
-Quiero documentación detallada
-Para facilitar mantenimiento y nuevos ingresos.
-
-HU-24 – Video y presentación final
-
-Como equipo del proyecto
-Quiero mostrar el funcionamiento
-Para demostrar el cumplimiento del taller.
+## [Volver al README](../../README.md)
