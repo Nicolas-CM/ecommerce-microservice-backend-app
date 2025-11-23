@@ -6,6 +6,7 @@ target/
 
 ### Venv ###
 .venv/
+venv/
 
 ### STS ###
 .apt_generated
