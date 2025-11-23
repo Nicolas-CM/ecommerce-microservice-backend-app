@@ -1,3 +1,7 @@
+## Regresar a [Parte inicial](initial-part.md).
+
+## Regresar al [Readme](../../README.md).
+
 # e-Commerce-boot μServices 
 
 ## Important Note: This project's new milestone is to move The whole system to work on Kubernetes, so stay tuned.
@@ -40,7 +44,7 @@ Now, as we have learned about different system components, then let's start.
 
 ### System Boundary *Architecture* - μServices Landscape
 
-![System Boundary](app-architecture.drawio.png)
+![System Boundary](../of-selim/app-architecture.drawio.png)
 
 ### Required software
 
@@ -74,7 +78,7 @@ All that you want to do is just fire up your IDE **->** open or import the paren
 
 ## Data Model
 ### Entity-Relationship-Diagram
-![System Boundary](ecommerce-ERD.drawio.png)
+![System Boundary](../of-selim/ecommerce-ERD.drawio.png)
 
 ## Playing With e-Commerce-boot Project
 
@@ -585,7 +589,7 @@ End, all tests OK: Tue, May 31, 2020 2:10:09 AM
 ### Tracking the services with Zipkin
 Now, you can now track Microservices interactions throughout Zipkin UI from the following link:
 [http://localhost:9411/zipkin/](http://localhost:9411/zipkin/)
-![Zipkin UI](zipkin-dash.png)
+![Zipkin UI](../of-selim/zipkin-dash.png)
 
 ### Closing The Story
 
