@@ -14,6 +14,9 @@ spring:
     active:
     - dev
 
+features:
+  enable-v2-endpoint: false
+
 resilience4j:
   bulkhead:
     instances:
@@ -34,6 +37,10 @@ resilience4j:
         sliding-window-type: COUNT_BASED
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
   health:
     circuitbreakers:
       enabled: true
