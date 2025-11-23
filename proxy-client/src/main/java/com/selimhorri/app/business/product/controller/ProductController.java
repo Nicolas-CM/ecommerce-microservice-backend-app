@@ -18,18 +18,28 @@ import com.selimhorri.app.business.product.service.ProductClientService;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 
 @RestController
 @RequestMapping("/api/products")
 @Slf4j
 @RequiredArgsConstructor
+@RefreshScope
 public class ProductController {
 
 	private final ProductClientService productClientService;
 
+	@Value("${features.enable-v2-endpoint:false}")
+	private boolean isV2EndpointEnabled;
+
 	@GetMapping
 	@Bulkhead(name = "productServiceBulkhead", fallbackMethod = "findAllFallback")
-	public ResponseEntity<ProductProductServiceCollectionDtoResponse> findAll() {
+	public ResponseEntity<?> findAll() {
+		if (isV2EndpointEnabled) {
+			log.info("** Feature Toggle V2 ACTIVADO: Retornando estructura nueva **");
+			return ResponseEntity.ok("{\"message\": \"Esta es la versión V2 del endpoint de productos\", \"data\": []}");
+		}
 		log.info("** Proxy Client: Fetching all products with Bulkhead protection **");
 		return ResponseEntity.ok(this.productClientService.findAll().getBody());
 	}
