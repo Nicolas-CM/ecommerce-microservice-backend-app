@@ -1,0 +1,45 @@
+# Image Tags Configuration for PRODUCTION Environment
+# Use only production-ready versions from main branch
+
+services:
+  api-gateway:
+    image: ghcr.io/nicolas-cm/api-gateway
+    tag: "1.0.0"  # Production release version
+    
+  user-service:
+    image: ghcr.io/nicolas-cm/user-service
+    tag: "1.0.0"
+    
+  product-service:
+    image: ghcr.io/nicolas-cm/product-service
+    tag: "1.0.0"
+    
+  order-service:
+    image: ghcr.io/nicolas-cm/order-service
+    tag: "1.0.0"
+    
+  payment-service:
+    image: ghcr.io/nicolas-cm/payment-service
+    tag: "1.0.0"
+    
+  shipping-service:
+    image: ghcr.io/nicolas-cm/shipping-service
+    tag: "1.0.0"
+    
+  favourite-service:
+    image: ghcr.io/nicolas-cm/favourite-service
+    tag: "1.0.0"
+    
+  cloud-config:
+    image: ghcr.io/nicolas-cm/cloud-config
+    tag: "1.0.0"
+    
+  service-discovery:
+    image: ghcr.io/nicolas-cm/service-discovery
+    tag: "1.0.0"
+
+# Deploy to PRODUCTION:
+# helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+#   --namespace ecommerce-prod \
+#   --create-namespace \
+#   --values ./image-tags-prod.yaml

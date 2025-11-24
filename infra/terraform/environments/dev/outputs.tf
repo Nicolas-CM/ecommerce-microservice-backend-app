@@ -3,20 +3,6 @@ output "resource_group_name" {
   value       = module.resource_group.name
 }
 
-output "acr_login_server" {
-  description = "ACR login server for pushing microservice images."
-  value       = module.acr.login_server
-}
-
-output "container_app_fqdns" {
-  description = "Map of service names to their exposed FQDNs."
-  value = {
-    for name, details in module.container_apps :
-    name => details.fqdn
-  }
-}
-
-# AKS Outputs
 output "aks_cluster_name" {
   description = "Name of the AKS cluster."
   value       = module.aks.name

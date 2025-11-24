@@ -23,55 +23,15 @@ variable "environment_name" {
   type        = string
 }
 
-variable "image_tag" {
-  description = "Docker image tag applied to all services by default."
-  type        = string
-}
-
 variable "network_address_space" {
   description = "Address space for the virtual network."
   type        = list(string)
-}
-
-variable "containerapps_subnet_cidr" {
-  description = "CIDR assigned to the Container Apps delegated subnet."
-  type        = string
 }
 
 variable "log_analytics_retention_days" {
   description = "Retention period for Log Analytics workspace."
   type        = number
   default     = 30
-}
-
-variable "acr_sku" {
-  description = "SKU for Azure Container Registry."
-  type        = string
-  default     = "Standard"
-}
-
-variable "caenv_internal_lb" {
-  description = "Enable internal only Container Apps environment ingress."
-  type        = bool
-  default     = false
-}
-
-variable "service_definitions" {
-  description = "Map describing each microservice deployment details."
-  type        = map(any)
-  default     = {}
-}
-
-variable "default_environment_variables" {
-  description = "Environment variables applied to every service."
-  type        = map(string)
-  default     = {}
-}
-
-variable "default_secrets" {
-  description = "Secrets applied to every service deployment."
-  type        = map(string)
-  default     = {}
 }
 
 variable "tags" {

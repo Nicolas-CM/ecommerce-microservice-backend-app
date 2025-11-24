@@ -1,0 +1,45 @@
+# Image Tags Configuration for STAGE Environment
+# Use stable versions tested in dev
+
+services:
+  api-gateway:
+    image: ghcr.io/nicolas-cm/api-gateway
+    tag: "0.1.0"  # Specific stable version
+    
+  user-service:
+    image: ghcr.io/nicolas-cm/user-service
+    tag: "0.1.0"
+    
+  product-service:
+    image: ghcr.io/nicolas-cm/product-service
+    tag: "0.1.0"
+    
+  order-service:
+    image: ghcr.io/nicolas-cm/order-service
+    tag: "0.1.0"
+    
+  payment-service:
+    image: ghcr.io/nicolas-cm/payment-service
+    tag: "0.1.0"
+    
+  shipping-service:
+    image: ghcr.io/nicolas-cm/shipping-service
+    tag: "0.1.0"
+    
+  favourite-service:
+    image: ghcr.io/nicolas-cm/favourite-service
+    tag: "0.1.0"
+    
+  cloud-config:
+    image: ghcr.io/nicolas-cm/cloud-config
+    tag: "0.1.0"
+    
+  service-discovery:
+    image: ghcr.io/nicolas-cm/service-discovery
+    tag: "0.1.0"
+
+# Deploy to STAGE:
+# helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+#   --namespace ecommerce-stage \
+#   --create-namespace \
+#   --values ./image-tags-stage.yaml

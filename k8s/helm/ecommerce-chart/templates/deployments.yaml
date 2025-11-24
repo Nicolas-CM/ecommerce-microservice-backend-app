@@ -18,10 +18,14 @@ spec:
         app: {{ .name }}
     spec:
       restartPolicy: Always
+      {{- if $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml $.Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .name }}
-          image: "{{ .image }}"
-          imagePullPolicy: {{ $.Values.common.imagePullPolicy }}
+          image: "{{ $.Values.global.registry }}/{{ .image }}:{{ .tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .port }}
           env:
