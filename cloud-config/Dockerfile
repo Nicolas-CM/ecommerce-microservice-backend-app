@@ -1,10 +1,10 @@
 
-FROM eclipse-temurin:11-jre
+
+FROM eclipse-temurin:17-jre-alpine
 ARG PROJECT_VERSION=0.1.0
-RUN mkdir -p /home/app
-WORKDIR /home/app
-ADD target/cloud-config-v${PROJECT_VERSION}.jar cloud-config.jar
+WORKDIR /app
+COPY target/cloud-config-v${PROJECT_VERSION}.jar app.jar
 EXPOSE 9296
-ENTRYPOINT ["java", "-jar", "cloud-config.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
 

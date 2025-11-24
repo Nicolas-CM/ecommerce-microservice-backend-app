@@ -1,11 +1,10 @@
 
-FROM eclipse-temurin:11-jre
+
+FROM eclipse-temurin:17-jre-alpine
 ARG PROJECT_VERSION=0.1.0
-RUN mkdir -p /home/app
-WORKDIR /home/app
-ENV SPRING_PROFILES_ACTIVE=dev
-ADD target/user-service-v${PROJECT_VERSION}.jar user-service.jar
-EXPOSE 8081
-ENTRYPOINT ["java", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}", "-jar", "user-service.jar"]
+WORKDIR /app
+COPY target/user-service-v${PROJECT_VERSION}.jar app.jar
+EXPOSE 8700
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
 

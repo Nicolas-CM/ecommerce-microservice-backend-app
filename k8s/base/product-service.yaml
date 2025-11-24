@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: product-service
-        image: selimhorri/product-service-ecommerce-boot:0.1.0
+        image: product-service:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8500
