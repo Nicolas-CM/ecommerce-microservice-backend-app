@@ -118,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: dev
-      url: https://portal.azure.com/#@${{ secrets.AZURE_TENANT_ID }}/resource/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/eco-dev-rg
+      url: https://portal.azure.com/#@${{ env.ARM_TENANT_ID }}/resource/subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/eco-dev-rg
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     defaults:
       run:
