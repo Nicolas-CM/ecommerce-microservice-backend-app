@@ -21,8 +21,8 @@ variable "address_space" {
 variable "subnets" {
   description = "Map of subnets to create within the virtual network."
   type = map(object({
-    name              = string
-    address_prefixes  = list(string)
+    name             = string
+    address_prefixes = list(string)
     service_delegation = optional(object({
       name    = string
       actions = optional(list(string))

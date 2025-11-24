@@ -32,8 +32,8 @@ locals {
 }
 
 module "resource_group" {
-  source  = "../../modules/resource_group"
-  name    = format("%s-rg", local.name_prefix)
+  source   = "../../modules/resource_group"
+  name     = format("%s-rg", local.name_prefix)
   location = var.location
   tags     = local.tags
 }
@@ -79,34 +79,34 @@ module "acr" {
 }
 
 module "container_apps_env" {
-  source                       = "../../modules/container_apps_env"
-  name                         = format("%s-aca-env", local.name_prefix)
-  resource_group_name          = module.resource_group.name
-  location                     = var.location
-  log_analytics_workspace_id   = module.log_analytics.id
-  infrastructure_subnet_id     = module.network.subnet_ids["containerapps"]
+  source                         = "../../modules/container_apps_env"
+  name                           = format("%s-aca-env", local.name_prefix)
+  resource_group_name            = module.resource_group.name
+  location                       = var.location
+  log_analytics_workspace_id     = module.log_analytics.id
+  infrastructure_subnet_id       = module.network.subnet_ids["containerapps"]
   internal_load_balancer_enabled = var.caenv_internal_lb
-  tags                         = local.tags
+  tags                           = local.tags
 }
 
 module "container_apps" {
   for_each = local.normalized_services
   source   = "../../modules/container_app"
 
-  name                 = format("%s-%s", local.name_prefix, each.key)
-  resource_group_name  = module.resource_group.name
-  location             = var.location
-  environment_id       = module.container_apps_env.id
-  image                = each.value.image
-  registry_server      = module.acr.login_server
-  registry_username    = module.acr.admin_username
-  registry_password    = module.acr.admin_password
-  cpu                  = each.value.cpu
-  memory_gb            = each.value.memory_gb
+  name                  = format("%s-%s", local.name_prefix, each.key)
+  resource_group_name   = module.resource_group.name
+  location              = var.location
+  environment_id        = module.container_apps_env.id
+  image                 = each.value.image
+  registry_server       = module.acr.login_server
+  registry_username     = module.acr.admin_username
+  registry_password     = module.acr.admin_password
+  cpu                   = each.value.cpu
+  memory_gb             = each.value.memory_gb
   environment_variables = merge(var.default_environment_variables, each.value.env)
-  secrets              = merge(var.default_secrets, each.value.secrets)
-  min_replicas         = each.value.min_replicas
-  max_replicas         = each.value.max_replicas
+  secrets               = merge(var.default_secrets, each.value.secrets)
+  min_replicas          = each.value.min_replicas
+  max_replicas          = each.value.max_replicas
   ingress = each.value.ingress == null ? null : merge(
     {
       transport                  = "auto"

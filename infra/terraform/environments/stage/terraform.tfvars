@@ -5,11 +5,11 @@ global_prefix    = "eco"
 environment_name = "stage"
 image_tag        = "v0.1.0"
 
-network_address_space     = ["10.30.0.0/16"]
-containerapps_subnet_cidr = "10.30.1.0/24"
+network_address_space        = ["10.30.0.0/16"]
+containerapps_subnet_cidr    = "10.30.1.0/24"
 log_analytics_retention_days = 60
-acr_sku                       = "Premium"
-caenv_internal_lb             = true
+acr_sku                      = "Premium"
+caenv_internal_lb            = true
 
 tags = {
   Project = "ecommerce-microservices"

@@ -79,13 +79,13 @@ variable "default_container_concurrency" {
 variable "service_definitions" {
   description = "Map of service-specific settings used to render Cloud Run services."
   type = map(object({
-    repository            = optional(string)
-    image                 = optional(string)
-    container_port        = optional(number)
-    cpu                   = optional(number)
-    memory_gb             = optional(number)
-    memory                = optional(string)
-    env                   = optional(map(string))
+    repository     = optional(string)
+    image          = optional(string)
+    container_port = optional(number)
+    cpu            = optional(number)
+    memory_gb      = optional(number)
+    memory         = optional(string)
+    env            = optional(map(string))
     secrets = optional(map(object({
       secret  = string
       version = string

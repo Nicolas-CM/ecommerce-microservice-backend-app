@@ -5,11 +5,11 @@ global_prefix    = "eco"
 environment_name = "prod"
 image_tag        = "v1.0.0"
 
-network_address_space     = ["10.40.0.0/16"]
-containerapps_subnet_cidr = "10.40.1.0/24"
+network_address_space        = ["10.40.0.0/16"]
+containerapps_subnet_cidr    = "10.40.1.0/24"
 log_analytics_retention_days = 120
-acr_sku                       = "Premium"
-caenv_internal_lb             = true
+acr_sku                      = "Premium"
+caenv_internal_lb            = true
 
 tags = {
   Project = "ecommerce-microservices"
@@ -36,8 +36,8 @@ service_definitions = {
     }
     min_replicas = 3
     max_replicas = 6
-    cpu         = 1
-    memory_gb   = 2
+    cpu          = 1
+    memory_gb    = 2
   }
 
   "user-service" = {

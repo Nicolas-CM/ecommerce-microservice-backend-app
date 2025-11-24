@@ -5,15 +5,14 @@ locals {
 resource "azurerm_container_app" "this" {
   name                         = var.name
   resource_group_name          = var.resource_group_name
-  location                     = var.location
   container_app_environment_id = var.environment_id
   revision_mode                = var.revision_mode
   tags                         = var.tags
 
   registry {
-    server                = var.registry_server
-    username              = var.registry_username
-    password_secret_name  = "acr-password"
+    server               = var.registry_server
+    username             = var.registry_username
+    password_secret_name = "acr-password"
   }
 
   secret {
@@ -56,7 +55,7 @@ resource "azurerm_container_app" "this" {
       target_port                = ingress.value.target_port
       transport                  = coalesce(ingress.value.transport, "auto")
       allow_insecure_connections = coalesce(ingress.value.allow_insecure_connections, false)
-      
+
       traffic_weight {
         percentage      = 100
         latest_revision = true

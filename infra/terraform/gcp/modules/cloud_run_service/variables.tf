@@ -33,7 +33,7 @@ variable "env" {
 variable "secrets" {
   description = "Map of secret-backed environment variables."
   type = map(object({
-    secret = string
+    secret  = string
     version = string
   }))
   default = {}

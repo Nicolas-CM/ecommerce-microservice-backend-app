@@ -23,9 +23,9 @@ locals {
           var.image_tag
         )
       )
-      container_port        = try(service.container_port, 8080)
-      cpu                   = tostring(try(service.cpu, 1))
-      memory                = coalesce(
+      container_port = try(service.container_port, 8080)
+      cpu            = tostring(try(service.cpu, 1))
+      memory = coalesce(
         try(service.memory, null),
         format(
           "%dMi",
@@ -42,16 +42,16 @@ locals {
         try(service.ingress.external_enabled, null),
         true
       )
-      ingress_type          = try(service.ingress.external_enabled, true) ? "all" : "internal"
+      ingress_type = try(service.ingress.external_enabled, true) ? "all" : "internal"
     }
   }
 }
 
 module "network" {
-  source     = "../../modules/network"
-  project_id = var.project_id
-  name       = format("%s-vpc", local.name_prefix)
-  description = "VPC network for ${local.name_prefix}"
+  source       = "../../modules/network"
+  project_id   = var.project_id
+  name         = format("%s-vpc", local.name_prefix)
+  description  = "VPC network for ${local.name_prefix}"
   routing_mode = var.vpc_routing_mode
 
   subnets = {
@@ -64,11 +64,11 @@ module "network" {
 }
 
 module "artifact_registry" {
-  source      = "../../modules/artifact_registry"
-  project_id  = var.project_id
-  location    = local.artifact_registry_location
+  source        = "../../modules/artifact_registry"
+  project_id    = var.project_id
+  location      = local.artifact_registry_location
   repository_id = local.artifact_repository_id
-  labels      = local.labels
+  labels        = local.labels
 }
 
 module "cloud_run_service" {

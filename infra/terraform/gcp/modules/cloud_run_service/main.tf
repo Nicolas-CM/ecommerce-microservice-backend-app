@@ -27,7 +27,7 @@ resource "google_cloud_run_service" "this" {
     }
 
     spec {
-      service_account_name = var.service_account_email
+      service_account_name  = var.service_account_email
       container_concurrency = var.container_concurrency
 
       containers {
