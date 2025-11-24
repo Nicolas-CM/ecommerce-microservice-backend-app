@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: shipping-service
-        image: selimhorri/shipping-service-ecommerce-boot:0.1.0
+        image: shipping-service:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8600
