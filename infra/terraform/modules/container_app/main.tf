@@ -45,10 +45,8 @@ resource "azurerm_container_app" "this" {
       }
     }
 
-    scale {
-      min_replicas = var.min_replicas
-      max_replicas = var.max_replicas
-    }
+    min_replicas = var.min_replicas
+    max_replicas = var.max_replicas
   }
 
   dynamic "ingress" {
@@ -58,6 +56,11 @@ resource "azurerm_container_app" "this" {
       target_port                = ingress.value.target_port
       transport                  = coalesce(ingress.value.transport, "auto")
       allow_insecure_connections = coalesce(ingress.value.allow_insecure_connections, false)
+      
+      traffic_weight {
+        percentage      = 100
+        latest_revision = true
+      }
     }
   }
 }

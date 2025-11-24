@@ -13,3 +13,8 @@ output "admin_password" {
   description = "Admin password for the registry."
   sensitive   = true
 }
+
+output "id" {
+  value       = azurerm_container_registry.this.id
+  description = "The ID of the Container Registry."
+}

@@ -19,12 +19,12 @@ output "container_app_fqdns" {
 # AKS Outputs
 output "aks_cluster_name" {
   description = "Name of the AKS cluster."
-  value       = module.aks.cluster_name
+  value       = module.aks.name
 }
 
 output "aks_cluster_id" {
   description = "ID of the AKS cluster."
-  value       = module.aks.cluster_id
+  value       = module.aks.id
 }
 
 output "aks_kube_config" {
