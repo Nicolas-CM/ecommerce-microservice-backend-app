@@ -33,7 +33,7 @@ variable "node_count" {
 variable "vm_size" {
   description = "VM size for nodes"
   type        = string
-  default     = "Standard_DS2_v2"
+  default     = "Standard_B4ms"
 }
 
 variable "subnet_id" {

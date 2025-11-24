@@ -14,7 +14,7 @@ caenv_internal_lb            = false
 # AKS Configuration
 kubernetes_version      = "1.31.2"
 aks_node_count          = 2
-aks_vm_size             = "Standard_DS2_v2"
+aks_vm_size             = "Standard_B4ms"
 aks_enable_auto_scaling = true
 aks_min_count           = 1
 aks_max_count           = 5

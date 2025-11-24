@@ -158,6 +158,20 @@ jobs:
           name: tfplan-dev
           path: infra/terraform/environments/dev
 
+      - name: Clean Orphaned Resources
+        continue-on-error: true
+        run: |
+          echo "Checking for orphaned Container App Environment..."
+          az containerapp env show \
+            --name eco-dev-aca-env \
+            --resource-group eco-dev-rg \
+            --query "id" -o tsv && \
+          echo "Found orphaned environment, deleting..." && \
+          az containerapp env delete \
+            --name eco-dev-aca-env \
+            --resource-group eco-dev-rg \
+            --yes || echo "No orphaned environment found"
+
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve tfplan
