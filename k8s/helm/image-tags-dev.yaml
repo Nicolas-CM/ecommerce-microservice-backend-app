@@ -1,0 +1,45 @@
+# Image Tags Configuration for DEV Environment
+# Use dev-latest or specific dev versions for testing
+
+services:
+  api-gateway:
+    image: ghcr.io/nicolas-cm/api-gateway
+    tag: "dev-latest"  # Latest from dev branch
+    
+  user-service:
+    image: ghcr.io/nicolas-cm/user-service
+    tag: "dev-latest"
+    
+  product-service:
+    image: ghcr.io/nicolas-cm/product-service
+    tag: "dev-latest"
+    
+  order-service:
+    image: ghcr.io/nicolas-cm/order-service
+    tag: "dev-latest"
+    
+  payment-service:
+    image: ghcr.io/nicolas-cm/payment-service
+    tag: "dev-latest"
+    
+  shipping-service:
+    image: ghcr.io/nicolas-cm/shipping-service
+    tag: "dev-latest"
+    
+  favourite-service:
+    image: ghcr.io/nicolas-cm/favourite-service
+    tag: "dev-latest"
+    
+  cloud-config:
+    image: ghcr.io/nicolas-cm/cloud-config
+    tag: "dev-latest"
+    
+  service-discovery:
+    image: ghcr.io/nicolas-cm/service-discovery
+    tag: "dev-latest"
+
+# Deploy to DEV:
+# helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+#   --namespace ecommerce-dev \
+#   --create-namespace \
+#   --values ./image-tags-dev.yaml
