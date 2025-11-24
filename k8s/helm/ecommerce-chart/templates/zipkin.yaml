@@ -1,0 +1,43 @@
+{{- if .Values.zipkin.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  labels:
+    app: zipkin
+    {{- include "ecommerce-chart.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+    spec:
+      containers:
+        - name: zipkin
+          image: {{ .Values.zipkin.image }}
+          imagePullPolicy: {{ .Values.common.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.zipkin.port }}
+          resources:
+            {{- toYaml .Values.common.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  labels:
+    app: zipkin
+    {{- include "ecommerce-chart.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.zipkin.port }}
+      targetPort: {{ .Values.zipkin.port }}
+      protocol: TCP
+  selector:
+    app: zipkin
+{{- end }}
