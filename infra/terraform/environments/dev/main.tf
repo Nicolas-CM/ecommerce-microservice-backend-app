@@ -50,12 +50,7 @@ module "network" {
     containerapps = {
       name             = format("%s-apps-snet", local.name_prefix)
       address_prefixes = [var.containerapps_subnet_cidr]
-      service_delegation = {
-        name = "Microsoft.App/environments"
-        actions = [
-          "Microsoft.Network/virtualNetworks/subnets/action"
-        ]
-      }
+      service_delegation = null
     }
     aks = {
       name             = format("%s-aks-snet", local.name_prefix)
