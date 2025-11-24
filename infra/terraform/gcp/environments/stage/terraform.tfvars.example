@@ -1,0 +1,19 @@
+project_id        = "eco-microservices-stage"
+region            = "us-central1"
+global_prefix     = "eco"
+environment_name  = "stage"
+image_tag         = "v0.1.0"
+subnet_cidr_block = "10.60.2.0/24"
+
+labels = {
+  project = "ecommerce-microservices"
+  owner   = "platform-team"
+}
+
+default_environment_variables = {}
+
+default_secrets = {}
+
+default_container_concurrency = 80
+
+service_definitions = {}

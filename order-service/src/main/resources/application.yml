@@ -1,5 +1,7 @@
 
+
 server:
+  port: ${PORT:8083}
   servlet:
     context-path: /order-service
 
@@ -40,8 +42,8 @@ logging:
     com.netflix.eureka: WARN
 
 resilience4j:
-  circuitbreaker:
-    instances:
+      port: ${PORT:8083}
+      instances:
       orderService:
         register-health-indicator: true
         event-consumer-buffer-size: 10
