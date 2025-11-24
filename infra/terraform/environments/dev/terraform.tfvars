@@ -6,13 +6,13 @@ environment_name = "dev"
 image_tag        = "v0.1.0"
 
 network_address_space        = ["10.20.0.0/16"]
-containerapps_subnet_cidr    = "10.20.1.0/24"
+containerapps_subnet_cidr    = "10.20.0.0/23"
 log_analytics_retention_days = 30
 acr_sku                      = "Standard"
 caenv_internal_lb            = false
 
 # AKS Configuration
-kubernetes_version      = "1.28.5"
+kubernetes_version      = "1.29.2"
 aks_node_count          = 2
 aks_vm_size             = "Standard_DS2_v2"
 aks_enable_auto_scaling = true
