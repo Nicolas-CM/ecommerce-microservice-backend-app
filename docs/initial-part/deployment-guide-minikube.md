@@ -1,3 +1,7 @@
+## Regresar a [Parte inicial](initial-part.md).
+
+## Regresar al [Readme](../../README.md).
+
 # 🚀 Guía de Despliegue en Minikube con GitHub Actions
 
 ## 📋 Pre-requisitos
@@ -763,27 +767,6 @@ minikube delete
 3. **Imágenes**: Usa `imagePullPolicy: Never` para imágenes locales
 4. **Orden**: Despliega infraestructura primero, luego microservicios
 5. **Wait**: Espera a que Eureka y Config Server estén listos antes de desplegar los servicios
-
----
-
-## 🎯 Checklist de Entrega
-
-- [ ] Minikube instalado y funcionando
-- [ ] Todas las imágenes Docker construidas
-- [ ] Manifiestos K8s generados
-- [ ] Servicios desplegados en Minikube
-- [ ] Pruebas unitarias implementadas (mínimo 5)
-- [ ] Pruebas de integración implementadas (mínimo 5)
-- [ ] Pruebas E2E implementadas (mínimo 5)
-- [ ] Pruebas de rendimiento con Locust
-- [ ] GitHub Actions workflows configurados (DEV, STAGE, PROD)
-- [ ] Screenshots de:
-  - [ ] Workflows ejecutándose
-  - [ ] Pods corriendo en Minikube
-  - [ ] Servicios respondiendo
-  - [ ] Resultados de pruebas
-  - [ ] Reporte de Locust
-- [ ] Documentación completa
 
 ---
 
