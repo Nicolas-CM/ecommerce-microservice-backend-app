@@ -1,0 +1,57 @@
+{{- range .Values.microservices }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ .name }}
+    {{- include "ecommerce-chart.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $.Values.common.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: {{ .name }}
+          image: "{{ .image }}"
+          imagePullPolicy: {{ $.Values.common.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .port }}
+          env:
+            {{- range .env }}
+            - name: {{ .name }}
+              value: "{{ .value }}"
+            {{- end }}
+            # Variables de entorno comunes para Zipkin
+            - name: SPRING_ZIPKIN_BASE_URL
+              value: "http://zipkin:9411"
+          resources:
+            {{- toYaml $.Values.common.resources | nindent 12 }}
+          {{- if not .isEureka }}
+          # Startup probe: permite hasta 10 minutos para el arranque inicial con reintentos de Eureka
+          startupProbe:
+            httpGet:
+              path: {{ .contextPath | default "" }}/actuator/health/liveness
+              port: {{ .port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 60
+            timeoutSeconds: 5
+          # Readiness probe: solo verifica que el servidor HTTP responde
+          readinessProbe:
+            httpGet:
+              path: {{ .contextPath | default "" }}/actuator/health/liveness
+              port: {{ .port }}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          {{- end }}
+{{- end }}
