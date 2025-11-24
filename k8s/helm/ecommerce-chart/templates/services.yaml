@@ -1,0 +1,24 @@
+{{- range .Values.microservices }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ .name }}
+    {{- include "ecommerce-chart.labels" $ | nindent 4 }}
+spec:
+  type: {{ .type | default "ClusterIP" }}
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+      protocol: TCP
+      {{- if and (eq .type "NodePort") .nodePort }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+      {{- if and (eq .type "LoadBalancer") .nodePort }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+  selector:
+    app: {{ .name }}
+{{- end }}
