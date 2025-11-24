@@ -1,10 +1,16 @@
 # Configuración global
 global:
   environment: dev
+  # Registry configuration for production AKS deployment
+  registry: ghcr.io
+  imagePullPolicy: Always # Use Always for GHCR images in AKS
+  
+  # Image Pull Secrets for private GHCR registry
+  imagePullSecrets:
+    - name: ghcr-secret
 
 # Configuración común para todos los microservicios
 common:
-  imagePullPolicy: Never # Importante para Minikube local
   replicas: 1
   resources:
     limits:
@@ -21,10 +27,12 @@ zipkin:
   port: 9411
 
 # Definición de los microservicios
+# Image tags can be overridden using image-tags.yaml file
 microservices:
   - name: cloud-config
     isEureka: true
-    image: cloud-config:latest
+    image: nicolas-cm/cloud-config  # Will be prefixed with global.registry
+    tag: latest  # Can be overridden via image-tags.yaml
     port: 9296
     type: ClusterIP
     env:
@@ -37,7 +45,8 @@ microservices:
 
   - name: service-discovery
     isEureka: true
-    image: service-discovery:latest
+    image: nicolas-cm/service-discovery
+    tag: latest
     port: 8761
     type: ClusterIP
     env:
@@ -53,7 +62,8 @@ microservices:
         value: "false"
 
   - name: api-gateway
-    image: api-gateway:latest
+    image: nicolas-cm/api-gateway
+    tag: latest
     port: 8080
     type: LoadBalancer
     nodePort: 30080
@@ -79,7 +89,8 @@ microservices:
         value: "true"
 
   - name: product-service
-    image: product-service:latest
+    image: nicolas-cm/product-service
+    tag: latest
     port: 8500
     type: ClusterIP
     contextPath: "/product-service"
@@ -104,7 +115,8 @@ microservices:
         value: "true"
 
   - name: order-service
-    image: order-service:latest
+    image: nicolas-cm/order-service
+    tag: latest
     port: 8300
     type: ClusterIP
     contextPath: "/order-service"
@@ -129,7 +141,8 @@ microservices:
         value: "true"
 
   - name: user-service
-    image: user-service:latest
+    image: nicolas-cm/user-service
+    tag: latest
     port: 8700
     type: ClusterIP
     contextPath: "/user-service"
@@ -154,7 +167,8 @@ microservices:
         value: "true"
 
   - name: payment-service
-    image: payment-service:latest
+    image: nicolas-cm/payment-service
+    tag: latest
     port: 8400
     type: ClusterIP
     contextPath: "/payment-service"
@@ -179,7 +193,8 @@ microservices:
         value: "true"
 
   - name: shipping-service
-    image: shipping-service:latest
+    image: nicolas-cm/shipping-service
+    tag: latest
     port: 8600
     type: ClusterIP
     contextPath: "/shipping-service"
@@ -204,7 +219,8 @@ microservices:
         value: "true"
 
   - name: favourite-service
-    image: favourite-service:latest
+    image: nicolas-cm/favourite-service
+    tag: latest
     port: 8800
     type: ClusterIP
     contextPath: "/favourite-service"
@@ -229,7 +245,8 @@ microservices:
         value: "true"
 
   - name: proxy-client
-    image: proxy-client:latest
+    image: nicolas-cm/proxy-client
+    tag: latest
     port: 8900
     type: ClusterIP
     contextPath: "/app"

@@ -76,11 +76,6 @@ variable "log_analytics_workspace_id" {
   type        = string
 }
 
-variable "acr_id" {
-  description = "Azure Container Registry ID"
-  type        = string
-}
-
 variable "tags" {
   description = "Tags"
   type        = map(string)

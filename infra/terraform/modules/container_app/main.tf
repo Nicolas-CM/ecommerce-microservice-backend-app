@@ -31,7 +31,7 @@ resource "azurerm_container_app" "this" {
   template {
     container {
       name   = var.name
-      image  = var.image
+      image  = var.image != "" ? var.image : "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
       cpu    = var.cpu
       memory = local.rendered_memory
 

@@ -1,6 +1,16 @@
 name: Infrastructure DEV - Terraform
 
 on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
   push:
     branches:
       - dev
@@ -14,7 +24,6 @@ on:
     paths:
       - 'infra/terraform/environments/dev/**'
       - 'infra/terraform/modules/**'
-  workflow_dispatch:
 
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -171,6 +180,17 @@ jobs:
             --name eco-dev-aca-env \
             --resource-group eco-dev-rg \
             --yes || echo "No orphaned environment found"
+
+      - name: Grant Role Assignment Permissions
+        continue-on-error: true
+        run: |
+          echo "Granting User Access Administrator role to Service Principal..."
+          SP_OBJECT_ID=$(az ad sp show --id ${{ env.ARM_CLIENT_ID }} --query id -o tsv)
+          az role assignment create \
+            --assignee-object-id $SP_OBJECT_ID \
+            --assignee-principal-type ServicePrincipal \
+            --role "User Access Administrator" \
+            --scope "/subscriptions/${{ env.ARM_SUBSCRIPTION_ID }}/resourceGroups/eco-dev-rg" || echo "Role may already be assigned"
 
       - name: Terraform Apply
         id: apply
