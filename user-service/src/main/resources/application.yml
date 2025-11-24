@@ -41,11 +41,6 @@ logging:
     com.netflix.discovery: WARN
     com.netflix.eureka: WARN
 
-eureka:
-  client:
-    service-url:
-      defaultZone: https://eco-dev-service-discovery-927927280960.us-central1.run.app/eureka
-
 resilience4j:
   instances:
     userService:
