@@ -11,6 +11,17 @@ log_analytics_retention_days = 30
 acr_sku                    = "Standard"
 caenv_internal_lb          = false
 
+# AKS Configuration
+kubernetes_version       = "1.28.5"
+aks_node_count          = 2
+aks_vm_size             = "Standard_DS2_v2"
+aks_enable_auto_scaling = true
+aks_min_count           = 1
+aks_max_count           = 5
+aks_subnet_cidr         = "10.20.2.0/24"
+aks_service_cidr        = "10.0.0.0/16"
+aks_dns_service_ip      = "10.0.0.10"
+
 tags = {
   Project = "ecommerce-microservices"
   Owner   = "platform-team"

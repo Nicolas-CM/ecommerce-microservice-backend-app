@@ -1,26 +1,47 @@
 # Infraestructura en Azure con Terraform
 
-Esta carpeta define toda la infraestructura necesaria para desplegar los microservicios de la plataforma en Azure utilizando una arquitectura modular basada en Azure Container Apps (ACA). La solución contempla tres ambientes (`dev`, `stage`, `prod`) y soporta un backend remoto en Azure Storage para mantener el estado de Terraform.
+Esta carpeta define toda la infraestructura necesaria para desplegar los microservicios de la plataforma en Azure utilizando una arquitectura modular. La solución contempla tres ambientes (`dev`, `stage`, `prod`) y soporta un backend remoto en Azure Storage para mantener el estado de Terraform.
+
+## 🏗️ Arquitectura
+
+La infraestructura está diseñada para soportar:
+- **Azure Kubernetes Service (AKS)**: Orquestación de contenedores para microservicios
+- **Azure Container Apps (ACA)**: Alternativa serverless para microservicios
+- **Azure Container Registry (ACR)**: Registro privado de imágenes Docker
+- **Virtual Network**: Red privada con subnets dedicadas
 
 ## Estructura
 
 ```
 infra/terraform
-├── modules/                  # Módulos reutilizables (RG, red, ACR, ACA, etc.)
-├── remote-state/             # Stack para crear el storage account del backend remoto
+├── modules/                  # Módulos reutilizables
+│   ├── aks/                 # Azure Kubernetes Service (NUEVO)
+│   ├── acr/                 # Azure Container Registry
+│   ├── network/             # Virtual Network y Subnets
+│   ├── log_analytics/       # Log Analytics Workspace
+│   ├── resource_group/      # Resource Group
+│   ├── container_apps_env/  # Container Apps Environment
+│   └── container_app/       # Container App individual
+├── remote-state/            # Stack para crear storage account del backend
 └── environments/
-    ├── dev/
-    ├── stage/
-    └── prod/                 # Cada ambiente tiene mismos archivos pero variables propias
+    ├── dev/                 # ✅ CONFIGURADO CON AKS
+    │   ├── main.tf          # Configuración principal con AKS
+    │   ├── variables.tf     # Variables incluyendo AKS
+    │   ├── outputs.tf       # Outputs de AKS y otros recursos
+    │   ├── terraform.tfvars # Valores para ambiente DEV
+    │   └── backend.hcl      # Configuración del backend
+    ├── stage/               # Ambiente de staging (próximamente)
+    └── prod/                # Ambiente de producción (próximamente)
 ```
 
 ### Módulos disponibles
-- `resource_group`: administra grupos de recursos.
-- `network`: crea la VNet y subred delegada para ACA.
-- `log_analytics`: workspace para diagnósticos y métricas.
-- `acr`: Azure Container Registry para las imágenes de todos los servicios.
-- `container_apps_env`: entorno de Azure Container Apps asociado a la subred delegada.
-- `container_app`: definición parametrizable por microservicio (imagen, CPU/Memoria, ingress, env/secrets, escalado).
+- **`resource_group`**: Administra grupos de recursos Azure
+- **`network`**: Crea VNet con subnets para AKS y Container Apps
+- **`log_analytics`**: Workspace para diagnósticos y métricas
+- **`acr`**: Azure Container Registry para las imágenes
+- **`aks`**: 🆕 Azure Kubernetes Service con auto-scaling y monitoreo
+- **`container_apps_env`**: Entorno de Azure Container Apps
+- **`container_app`**: Definición parametrizable por microservicio
 
 ## Prerrequisitos
 1. Terraform >= 1.7.0.

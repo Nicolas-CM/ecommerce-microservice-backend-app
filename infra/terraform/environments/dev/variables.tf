@@ -79,3 +79,57 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# AKS Configuration
+variable "kubernetes_version" {
+  description = "Kubernetes version for AKS cluster."
+  type        = string
+  default     = "1.28.5"
+}
+
+variable "aks_node_count" {
+  description = "Initial number of nodes in AKS cluster."
+  type        = number
+  default     = 2
+}
+
+variable "aks_vm_size" {
+  description = "VM size for AKS nodes."
+  type        = string
+  default     = "Standard_DS2_v2"
+}
+
+variable "aks_enable_auto_scaling" {
+  description = "Enable autoscaling for AKS node pool."
+  type        = bool
+  default     = true
+}
+
+variable "aks_min_count" {
+  description = "Minimum node count for AKS autoscaling."
+  type        = number
+  default     = 1
+}
+
+variable "aks_max_count" {
+  description = "Maximum node count for AKS autoscaling."
+  type        = number
+  default     = 5
+}
+
+variable "aks_subnet_cidr" {
+  description = "CIDR block for AKS subnet."
+  type        = string
+}
+
+variable "aks_service_cidr" {
+  description = "Service CIDR for Kubernetes services."
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "aks_dns_service_ip" {
+  description = "DNS service IP for AKS cluster."
+  type        = string
+  default     = "10.0.0.10"
+}

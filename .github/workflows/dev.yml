@@ -2,9 +2,9 @@ name: DEV - Build & Basic Tests
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ tests-dev ]
   pull_request:
-    branches: [ dev ]
+    branches: [ tests-dev ]
   workflow_dispatch:
 
 jobs:

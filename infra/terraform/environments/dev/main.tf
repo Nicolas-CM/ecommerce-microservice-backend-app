@@ -1,3 +1,35 @@
+terraform {
+  required_version = ">= 1.7.0"
+  
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.80"
+    }
+  }
+
+  backend "azurerm" {
+    # Backend configuration is provided via backend.hcl file
+    # Run: terraform init -backend-config=backend.hcl
+  }
+}
+
+provider "azurerm" {
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+    
+    key_vault {
+      purge_soft_delete_on_destroy    = true
+      recover_soft_deleted_key_vaults = true
+    }
+  }
+  
+  subscription_id = var.subscription_id
+  tenant_id       = var.tenant_id
+}
+
 locals {
   name_prefix = format("%s-%s", var.global_prefix, var.environment_name)
   tags = merge(
@@ -57,6 +89,10 @@ module "network" {
         ]
       }
     }
+    aks = {
+      name             = format("%s-aks-snet", local.name_prefix)
+      address_prefixes = [var.aks_subnet_cidr]
+    }
   }
 }
 
@@ -76,6 +112,26 @@ module "acr" {
   location            = var.location
   sku                 = var.acr_sku
   tags                = local.tags
+}
+
+module "aks" {
+  source                     = "../../modules/aks"
+  name                       = format("%s-aks", local.name_prefix)
+  location                   = var.location
+  resource_group_name        = module.resource_group.name
+  dns_prefix                 = format("%s-aks", local.name_prefix)
+  kubernetes_version         = var.kubernetes_version
+  node_count                 = var.aks_node_count
+  vm_size                    = var.aks_vm_size
+  enable_auto_scaling        = var.aks_enable_auto_scaling
+  min_node_count             = var.aks_min_count
+  max_node_count             = var.aks_max_count
+  subnet_id                  = module.network.subnet_ids["aks"]
+  service_cidr               = var.aks_service_cidr
+  dns_service_ip             = var.aks_dns_service_ip
+  log_analytics_workspace_id = module.log_analytics.id
+  acr_id                     = module.acr.id
+  tags                       = local.tags
 }
 
 module "container_apps_env" {
