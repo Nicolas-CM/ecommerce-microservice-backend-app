@@ -9,6 +9,8 @@ resource "azurerm_kubernetes_cluster" "this" {
     name           = "default"
     vm_size        = var.vm_size
     vnet_subnet_id = var.subnet_id
+    
+    enable_auto_scaling = var.enable_auto_scaling
 
     # When auto-scaling is enabled, use min/max count
     # When disabled, use fixed node_count
