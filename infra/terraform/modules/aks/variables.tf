@@ -21,7 +21,7 @@ variable "dns_prefix" {
 variable "kubernetes_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.28.5"
+  default     = "1.30.6"
 }
 
 variable "node_count" {
