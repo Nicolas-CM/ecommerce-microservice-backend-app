@@ -1,18 +1,18 @@
-subscription_id = "079ab1f2-9528-44da-ba22-d60a88fdb0b8"
-tenant_id       = "e994072b-523e-4bfe-86e2-442c5e10b244"
-location        = "eastus"
-global_prefix   = "eco"
+subscription_id  = "079ab1f2-9528-44da-ba22-d60a88fdb0b8"
+tenant_id        = "e994072b-523e-4bfe-86e2-442c5e10b244"
+location         = "eastus"
+global_prefix    = "eco"
 environment_name = "dev"
 image_tag        = "v0.1.0"
 
-network_address_space    = ["10.20.0.0/16"]
-containerapps_subnet_cidr = "10.20.1.0/24"
+network_address_space        = ["10.20.0.0/16"]
+containerapps_subnet_cidr    = "10.20.1.0/24"
 log_analytics_retention_days = 30
-acr_sku                    = "Standard"
-caenv_internal_lb          = false
+acr_sku                      = "Standard"
+caenv_internal_lb            = false
 
 # AKS Configuration
-kubernetes_version       = "1.28.5"
+kubernetes_version      = "1.28.5"
 aks_node_count          = 2
 aks_vm_size             = "Standard_DS2_v2"
 aks_enable_auto_scaling = true
