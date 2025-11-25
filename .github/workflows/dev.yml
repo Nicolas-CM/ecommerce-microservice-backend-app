@@ -111,11 +111,13 @@ jobs:
               "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
             }
 
-      - name: Set AKS context
-        uses: azure/aks-set-context@v1
-        with:
-          resource-group: ${{ secrets.TF_BACKEND_RG }}
-          cluster-name: ${{ env.AKS_NAME }}
+      - name: Get AKS credentials
+        run: |
+          if [ -z "${{ secrets.AKS_NAME }}" ]; then
+            echo "ERROR: secret AKS_NAME is not set. Please add repository or environment secret 'AKS_NAME' with your AKS cluster name.";
+            exit 1;
+          fi
+          az aks get-credentials --resource-group "${{ secrets.TF_BACKEND_RG }}" --name "${{ secrets.AKS_NAME }}" --overwrite-existing
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
