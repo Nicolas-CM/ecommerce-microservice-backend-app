@@ -58,3 +58,16 @@ module "aks" {
   log_analytics_workspace_id = module.log_analytics.id
   tags                       = local.tags
 }
+
+resource "azurerm_kubernetes_cluster_node_pool" "pool2" {
+  name                  = "pool2"
+  kubernetes_cluster_id = module.aks.id
+  vm_size               = "Standard_E2_v3"
+  vnet_subnet_id        = module.network.subnet_ids["aks"]
+  enable_auto_scaling   = true
+  min_count             = 1
+  max_count             = 3
+  node_count            = 1
+  mode                  = "User"
+  tags                  = local.tags
+}
