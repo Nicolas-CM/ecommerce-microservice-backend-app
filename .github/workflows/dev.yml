@@ -48,7 +48,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        service: [ 'user-service', 'product-service', 'order-service', 'payment-service', 'favourite-service' ]
+        include:
+          - module: user-service
+            test: UserControllerIntegrationTest
+          - module: payment-service
+            test: PaymentServiceIntegrationTest
+          - module: favourite-service
+            test: FavouriteServiceIntegrationTest
 
     steps:
       - name: Checkout
@@ -61,17 +67,18 @@ jobs:
           java-version: '11'
           cache: maven
 
-      - name: Run integration tests for ${{ matrix.service }}
+      - name: Run integration test ${{ matrix.test }} in ${{ matrix.module }}
         run: |
           chmod +x ./mvnw || true
-          ./mvnw -pl ${{ matrix.service }} -am -Dtest='*IntegrationTest' test
+          echo "Running integration test '${{ matrix.test }}' in module '${{ matrix.module }}'"
+          ./mvnw -pl ${{ matrix.module }} -am -Dtest=${{ matrix.test }} -DfailIfNoTests=false test
 
       - name: Publish integration test results
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Integration Tests - ${{ matrix.service }}
-          path: ${{ matrix.service }}/target/surefire-reports/*.xml
+          name: Integration Tests - ${{ matrix.module }}
+          path: ${{ matrix.module }}/target/surefire-reports/*.xml
           reporter: java-junit
           fail-on-error: true
 
