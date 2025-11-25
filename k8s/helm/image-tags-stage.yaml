@@ -1,0 +1,12 @@
+# Values override for STAGE environment
+imageTags:
+  cloud-config: "0.2.0-a686f0a"
+  service-discovery: "0.2.0-a686f0a"
+  api-gateway: "0.0.1-dev.a686f0a"
+  product-service: "0.2.0-a686f0a"
+  order-service: "0.2.0-a686f0a"
+  user-service: "0.2.0-a686f0a"
+  payment-service: "0.2.0-a686f0a"
+  shipping-service: "0.2.0-a686f0a"
+  favourite-service: "0.2.0-a686f0a"
+  proxy-client: "0.0.1-dev.a686f0a"

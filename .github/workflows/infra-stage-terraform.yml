@@ -1,0 +1,170 @@
+name: Infrastructure STAGE - Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
+  push:
+    branches:
+      - stage
+    paths:
+      - 'infra/terraform/environments/stage/**'
+      - 'infra/terraform/modules/**'
+      - '.github/workflows/infra-stage-terraform.yml'
+  pull_request:
+    branches:
+      - stage
+    paths:
+      - 'infra/terraform/environments/stage/**'
+      - 'infra/terraform/modules/**'
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  TF_VERSION: '1.7.0'
+  ENVIRONMENT: 'stage'
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    environment: stage
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/stage
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_SA }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=stage.tfstate"
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan
+        continue-on-error: false
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-stage
+          path: infra/terraform/environments/stage/tfplan
+          retention-days: 5
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Workflow: \`${{ github.workflow }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    environment: stage
+    if: github.ref == 'refs/heads/stage' && github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/stage
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-stage
+          path: infra/terraform/environments/stage
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_SA }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=stage.tfstate"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan

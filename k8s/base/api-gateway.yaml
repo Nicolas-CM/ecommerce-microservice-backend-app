@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: selimhorri/api-gateway-ecommerce-boot:0.1.0
+        image: api-gateway:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

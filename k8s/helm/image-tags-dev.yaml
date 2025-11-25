@@ -1,0 +1,18 @@
+# Values override for DEV environment
+imageTags:
+  cloud-config: dev-latest
+  service-discovery: dev-latest
+  api-gateway: dev-latest
+  product-service: dev-latest
+  order-service: dev-latest
+  user-service: dev-latest
+  payment-service: dev-latest
+  shipping-service: dev-latest
+  favourite-service: dev-latest
+  proxy-client: dev-latest
+
+# Deploy to DEV:
+# helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+#   --namespace ecommerce-dev \
+#   --create-namespace \
+#   --values ./image-tags-dev.yaml

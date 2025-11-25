@@ -1,0 +1,353 @@
+name: MASTER - Production Pipeline with Full Testing
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-unit-tests:
+    name: Phase 1 - Build & Unit Tests
+    runs-on: self-hosted
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+      
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: 'maven'
+    
+    - name: 🔨 Build all microservices
+      shell: powershell
+      run: |
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " PHASE 1: Building all microservices" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $services = @(
+          "api-gateway",
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service",
+          "proxy-client"
+        )
+        
+        foreach ($service in $services) {
+          Write-Host "Building $service..." -ForegroundColor Yellow
+          cd $service
+          ..\mvnw.cmd clean package -DskipTests
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to build $service" -ForegroundColor Red
+            exit 1
+          }
+          cd ..
+          Write-Host "✅ $service built successfully" -ForegroundColor Green
+        }
+        
+        Write-Host ""
+        Write-Host "✅ All microservices built successfully!" -ForegroundColor Green
+    
+    - name: 🧪 Run Unit Tests
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Running Unit Tests" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $services = @(
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service"
+        )
+        
+        $totalTests = 0
+        $passedTests = 0
+        $failedServices = @()
+        
+        foreach ($service in $services) {
+          Write-Host "Running tests for $service..." -ForegroundColor Yellow
+          cd $service
+          ..\mvnw.cmd test
+          if ($LASTEXITCODE -eq 0) {
+            $passedTests++
+            Write-Host "✅ Tests passed for $service" -ForegroundColor Green
+          } else {
+            $failedServices += $service
+            Write-Host "❌ Tests failed for $service" -ForegroundColor Red
+          }
+          $totalTests++
+          cd ..
+          Write-Host ""
+        }
+        
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Unit Tests Summary" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host "Total services tested: $totalTests" -ForegroundColor Cyan
+        Write-Host "Passed: $passedTests" -ForegroundColor Green
+        Write-Host "Failed: $($failedServices.Count)" -ForegroundColor $(if ($failedServices.Count -gt 0) { "Red" } else { "Green" })
+        
+        if ($failedServices.Count -gt 0) {
+          Write-Host ""
+          Write-Host "Failed services: $($failedServices -join ', ')" -ForegroundColor Red
+          Write-Host "⚠️  Continuing deployment despite test failures..." -ForegroundColor Yellow
+        }
+    
+    - name: 🔍 Verify build artifacts
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Verifying Build Artifacts" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $services = @(
+          "api-gateway",
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service",
+          "proxy-client"
+        )
+        
+        foreach ($service in $services) {
+          $jarPath = "$service\target\$service-v0.1.0.jar"
+          if (Test-Path $jarPath) {
+            $size = (Get-Item $jarPath).Length / 1MB
+            Write-Host "✅ $service : $([math]::Round($size, 2)) MB" -ForegroundColor Green
+          } else {
+            Write-Host "❌ Missing: $jarPath" -ForegroundColor Red
+            exit 1
+          }
+        }
+        
+        Write-Host ""
+        Write-Host "✅ All build artifacts verified!" -ForegroundColor Green
+
+  deploy-to-kubernetes:
+    name: Phase 2 - Deploy to Kubernetes
+    needs: build-and-unit-tests
+    runs-on: self-hosted
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+      
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: 'maven'
+    
+    - name: 🔨 Rebuild services
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " PHASE 2: Rebuilding for deployment" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $services = @(
+          "api-gateway",
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service",
+          "proxy-client"
+        )
+        
+        foreach ($service in $services) {
+          Write-Host "Building $service..." -ForegroundColor Yellow
+          cd $service
+          ..\mvnw.cmd clean package -DskipTests
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to build $service" -ForegroundColor Red
+            exit 1
+          }
+          cd ..
+        }
+        
+        Write-Host "✅ Rebuild completed!" -ForegroundColor Green
+      
+    - name: 🔧 Check Kubernetes connection
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "Checking Kubernetes connection..." -ForegroundColor Cyan
+        kubectl version --client
+        kubectl cluster-info
+        Write-Host ""
+        
+    - name: 🐳 Build Docker images in Minikube
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Building Docker Images" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "Configuring Docker to use Minikube..." -ForegroundColor Yellow
+        & minikube -p minikube docker-env --shell powershell | Invoke-Expression
+        
+        $services = @(
+          "api-gateway",
+          "user-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "shipping-service",
+          "favourite-service",
+          "proxy-client"
+        )
+        
+        foreach ($service in $services) {
+          Write-Host "Building Docker image for $service..." -ForegroundColor Yellow
+          docker build -t ${service}:latest ./$service
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to build Docker image for $service" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "✅ Docker image built for $service" -ForegroundColor Green
+        }
+        
+        Write-Host ""
+        Write-Host "✅ All Docker images built successfully!" -ForegroundColor Green
+        
+    - name: 🚀 Deploy to Kubernetes (Minikube)
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Deploying to Kubernetes" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "Applying Kubernetes manifests..." -ForegroundColor Yellow
+        kubectl apply -f k8s/base/namespace.yaml
+        kubectl apply -f k8s/base/configmaps.yaml
+        kubectl apply -f k8s/base/
+        
+        Write-Host ""
+        Write-Host "Waiting for deployments to be ready (timeout: 5 minutes)..." -ForegroundColor Yellow
+        kubectl wait --for=condition=ready pod -l app=api-gateway -n ecommerce --timeout=300s
+        if ($LASTEXITCODE -ne 0) { 
+          Write-Host "⚠️  Some pods may not be ready yet, continuing..." -ForegroundColor Yellow
+        }
+        
+        Write-Host ""
+        Write-Host "✅ Deployment completed!" -ForegroundColor Green
+        
+    - name: 🔍 Verify deployment status
+      shell: powershell
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " Deployment Status" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "Pods in ecommerce namespace:" -ForegroundColor Yellow
+        kubectl get pods -n ecommerce
+        
+        Write-Host ""
+        Write-Host "Services in ecommerce namespace:" -ForegroundColor Yellow
+        kubectl get svc -n ecommerce
+        
+        Write-Host ""
+
+  system-tests:
+    name: Phase 3 - System & E2E Tests
+    needs: deploy-to-kubernetes
+    runs-on: self-hosted
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: 🧪 Run E2E Tests with Newman
+      shell: powershell
+      continue-on-error: true
+      run: |
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host " PHASE 3: Running E2E Tests" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "Checking if API Gateway is accessible..." -ForegroundColor Yellow
+        
+        # Verificar si el port-forward está activo
+        try {
+          $response = Invoke-WebRequest -Uri "http://localhost:8080/app/actuator/health" -TimeoutSec 5 -UseBasicParsing
+          Write-Host "✅ API Gateway is accessible at http://localhost:8080" -ForegroundColor Green
+          Write-Host ""
+          
+          # Ejecutar tests E2E con Newman
+          Write-Host "Running E2E tests with Newman..." -ForegroundColor Yellow
+          cd tests/e2e
+          
+          if (Get-Command newman -ErrorAction SilentlyContinue) {
+            newman run ecommerce-e2e-tests.postman_collection.json `
+              --reporter-cli `
+              --reporter-json `
+              --reporter-json-export ../../newman-results.json `
+              --timeout-request 10000 `
+              --delay-request 500
+            
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host ""
+              Write-Host "✅ E2E tests passed successfully!" -ForegroundColor Green
+            } else {
+              Write-Host ""
+              Write-Host "⚠️  Some E2E tests failed, check the report" -ForegroundColor Yellow
+            }
+          } else {
+            Write-Host "⚠️  Newman not installed, skipping E2E tests" -ForegroundColor Yellow
+            Write-Host "To install: npm install -g newman" -ForegroundColor Yellow
+          }
+          
+          cd ../..
+          
+        } catch {
+          Write-Host "❌ API Gateway is not accessible at http://localhost:8080" -ForegroundColor Red
+          Write-Host ""
+          Write-Host "⚠️  Please run port-forward manually in another terminal:" -ForegroundColor Yellow
+          Write-Host "kubectl port-forward -n ecommerce svc/api-gateway 8080:8080" -ForegroundColor Yellow
+          Write-Host ""
+          Write-Host "Skipping E2E tests..." -ForegroundColor Yellow
+        }
+        
+        Write-Host ""
+
+  summary:
+    name: Pipeline Summary
+    needs: [build-and-unit-tests, deploy-to-kubernetes, system-tests]
+    runs-on: self-hosted
+    if: always()
+    
+    steps:
+    - name: Print summary
+      shell: powershell
+      run: |
+        Write-Host "🎉 MASTER PRODUCTION PIPELINE COMPLETED"

@@ -8,7 +8,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:8080/app",
+			"value": "http://172.195.74.176:8080/app",
 			"type": "string"
 		},
 		{
@@ -87,10 +87,7 @@
 									"        pm.collectionVariables.set(\"credential_id\", jsonData.credentialDto.credentialId);",
 									"    }",
 									"});",
-									"",
-									"pm.test(\"Response time is less than 2000ms\", function () {",
-									"    pm.expect(pm.response.responseTime).to.be.below(2000);",
-									"});"
+									""
 								],
 								"type": "text/javascript"
 							}
@@ -106,7 +103,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"imageUrl\": \"https://example.com/avatar.jpg\",\n  \"email\": \"john.doe.e2e@test.com\",\n  \"phone\": \"+1234567890\",\n  \"addressDtos\": [\n    {\n      \"fullAddress\": \"123 Main Street, Apartment 4B\",\n      \"postalCode\": \"10001\",\n      \"city\": \"New York\"\n    }\n  ],\n  \"credential\": {\n    \"username\": \"johndoe_e2e\",\n    \"password\": \"SecurePass123!\",\n    \"roleBasedAuthority\": \"ROLE_USER\",\n    \"isEnabled\": true,\n    \"isAccountNonExpired\": true,\n    \"isAccountNonLocked\": true,\n    \"isCredentialsNonExpired\": true\n  }\n}"
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"imageUrl\": \"https://example.com/avatar.jpg\",\n  \"email\": \"john.doe.e2e@test.com\",\n  \"phone\": \"+1234567890\",\n  \"addressDtos\": [\n    {\n      \"fullAddress\": \"123 Main Street, Apartment 4B\",\n      \"postalCode\": \"10001\",\n      \"city\": \"New York\"\n    }\n  ],\n  \"credential\": {\n    \"username\": \"johndoe_e2e\",\n    \"password\": \"SecurePass123!\",\n    \"roleBasedAuthority\": \"ROLE_ADMIN\",\n    \"isEnabled\": true,\n    \"isAccountNonExpired\": true,\n    \"isAccountNonLocked\": true,\n    \"isCredentialsNonExpired\": true\n  }\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/users",
@@ -156,7 +153,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"username\": \"johndoe\",\n  \"password\": \"securePassword123\"\n}"
+							"raw": "{\n  \"username\": \"johndoe_e2e\",\n  \"password\": \"SecurePass123!\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/authenticate",

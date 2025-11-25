@@ -2,7 +2,7 @@ name: STAGE - Full Tests & Deploy to Minikube
 
 on:
   push:
-    branches: [ stage ]
+    branches: [ test-stage ]
   workflow_dispatch:
 
 jobs:
