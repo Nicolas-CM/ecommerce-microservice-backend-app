@@ -141,10 +141,10 @@ jobs:
       - name: Deploy Helm chart
         working-directory: k8s/helm
         run: |
-          helm upgrade --install ecommerce-app ./ecommerce-chart \
+          helm upgrade --install ecommerce-microservices ./ecommerce-chart \
             --namespace ecommerce-dev \
             --values ./ecommerce-chart/values.yaml \
-            --values ../image-tags-dev.yaml \
+            --values ./image-tags-dev.yaml \
             --set global.environment=${{ env.ENVIRONMENT }} --wait --timeout 10m
 
       - name: Verify deployment
