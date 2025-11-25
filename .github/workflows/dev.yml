@@ -118,7 +118,7 @@ jobs:
             echo "ERROR: secret AKS_NAME is not set. Please add repository or environment secret 'AKS_NAME' with your AKS cluster name.";
             exit 1;
           fi
-          az aks get-credentials --resource-group "${{ secrets.TF_BACKEND_RG }}" --name "${{ secrets.AKS_NAME }}" --overwrite-existing
+          az aks get-credentials --resource-group "${{ secrets.AKS_RG }}" --name "${{ secrets.AKS_NAME }}" --overwrite-existing
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
