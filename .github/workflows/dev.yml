@@ -179,8 +179,7 @@ jobs:
             --values ./image-tags-dev.yaml \
             --set global.environment=${{ env.ENVIRONMENT }} \
             --wait \
-            --timeout 20m \
-            --debug
+            --timeout 20m
 
       - name: Verify deployment
         if: always()
