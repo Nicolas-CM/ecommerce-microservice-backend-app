@@ -96,6 +96,7 @@ jobs:
       TF_VERSION: '1.7.0'
       ENVIRONMENT: 'dev'
       AKS_NAME: ${{ secrets.AKS_NAME }}
+      AKS_RG: ${{ secrets.AKS_RG }}
 
     steps:
       - name: Checkout
@@ -118,7 +119,17 @@ jobs:
             echo "ERROR: secret AKS_NAME is not set. Please add repository or environment secret 'AKS_NAME' with your AKS cluster name.";
             exit 1;
           fi
+          if [ -z "${{ secrets.AKS_RG }}" ]; then
+            echo "ERROR: secret AKS_RG is not set. Please add repository or environment secret 'AKS_RG' with your AKS resource group name.";
+            exit 1;
+          fi
+          echo "Getting credentials for AKS cluster: ${{ secrets.AKS_NAME }} in RG: ${{ secrets.AKS_RG }}"
           az aks get-credentials --resource-group "${{ secrets.AKS_RG }}" --name "${{ secrets.AKS_NAME }}" --overwrite-existing
+          echo "Current context:"
+          kubectl config current-context
+          echo "Cluster nodes:"
+          kubectl get nodes --no-headers | wc -l
+          echo "nodes available"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -128,7 +139,9 @@ jobs:
 
       - name: Create namespace
         run: |
-          kubectl create namespace ecommerce-dev || true
+          kubectl create namespace ecommerce-dev --dry-run=client -o yaml | kubectl apply -f -
+          echo "Namespace ecommerce-dev ready"
+          kubectl get namespace ecommerce-dev
 
       - name: Create GHCR secret (if provided)
         run: |
@@ -138,12 +151,47 @@ jobs:
             echo "GHCR_TOKEN not provided, skipping secret creation"; \
           fi
 
+      - name: Check and cleanup failed releases
+        working-directory: k8s/helm
+        run: |
+          echo "Checking for existing releases..."
+          if helm list -n ecommerce-dev | grep -q ecommerce-microservices; then
+            RELEASE_STATUS=$(helm status ecommerce-microservices -n ecommerce-dev -o json | jq -r '.info.status')
+            echo "Found release with status: $RELEASE_STATUS"
+            if [ "$RELEASE_STATUS" = "failed" ] || [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ]; then
+              echo "Cleaning up failed/pending release..."
+              helm uninstall ecommerce-microservices -n ecommerce-dev || true
+              sleep 5
+            fi
+          else
+            echo "No existing release found"
+          fi
+
       - name: Deploy Helm chart
         working-directory: k8s/helm
         run: |
-          helm upgrade --install ecommerce-microservices ./ecommerce-chart --namespace ecommerce-dev --values ./ecommerce-chart/values.yaml --values ./image-tags-dev.yaml --set global.environment=${{ env.ENVIRONMENT }} --wait --timeout 10m
+          echo "Deploying Helm chart to namespace ecommerce-dev..."
+          helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+            --namespace ecommerce-dev \
+            --create-namespace \
+            --values ./ecommerce-chart/values.yaml \
+            --values ./image-tags-dev.yaml \
+            --set global.environment=${{ env.ENVIRONMENT }} \
+            --wait \
+            --timeout 20m \
+            --debug
 
       - name: Verify deployment
+        if: always()
         run: |
-          kubectl get pods -n ecommerce-dev
+          echo "=== Helm Release Status ==="
+          helm status ecommerce-microservices -n ecommerce-dev || echo "Release not found"
+          echo ""
+          echo "=== Pods Status ==="
+          kubectl get pods -n ecommerce-dev -o wide
+          echo ""
+          echo "=== Services ==="
           kubectl get svc -n ecommerce-dev
+          echo ""
+          echo "=== Recent Events ==="
+          kubectl get events -n ecommerce-dev --sort-by='.lastTimestamp' | tail -n 20
