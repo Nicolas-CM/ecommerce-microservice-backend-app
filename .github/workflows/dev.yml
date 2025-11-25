@@ -29,8 +29,8 @@ jobs:
 
       - name: Run unit tests for ${{ matrix.service }}
         run: |
-          ../mvnw -pl ${{ matrix.service }} -am test
-        working-directory: .
+          chmod +x ./mvnw || true
+          ./mvnw -pl ${{ matrix.service }} -am test
 
       - name: Publish unit test results
         uses: dorny/test-reporter@v1
@@ -63,8 +63,8 @@ jobs:
 
       - name: Run integration tests for ${{ matrix.service }}
         run: |
-          ../mvnw -pl ${{ matrix.service }} -am -Dtest='*IntegrationTest' test
-        working-directory: .
+          chmod +x ./mvnw || true
+          ./mvnw -pl ${{ matrix.service }} -am -Dtest='*IntegrationTest' test
 
       - name: Publish integration test results
         uses: dorny/test-reporter@v1
