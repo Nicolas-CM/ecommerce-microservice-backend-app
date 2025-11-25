@@ -45,7 +45,7 @@ public class AuthenticationController {
 	@GetMapping("/status")
 	public ResponseEntity<String> getStatus() {
 		log.info("**Authentication controller, status check*\n");
-		return ResponseEntity.ok("Código actualizado correctamente, aquí en dev");
+		return ResponseEntity.ok("Código actualizado correctamente, aquí en dev :)");
 	}
 
 	@GetMapping("/hash/{password}")

@@ -1,4 +1,7 @@
 # Values override for DEV environment
+# Los valores por defecto son dev-latest
+# El pipeline de dev.yml sobrescribe dinámicamente con los tags versionados (ej: 0.1.0-dev.38191eb)
+# sin modificar este archivo, manteniendo el repositorio limpio
 imageTags:
   cloud-config: dev-latest
   service-discovery: dev-latest
