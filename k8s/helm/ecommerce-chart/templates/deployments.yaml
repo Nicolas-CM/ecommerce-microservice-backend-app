@@ -24,7 +24,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .name }}
-          image: "{{ $.Values.global.registry }}/{{ .image }}:{{ .tag }}"
+          image: "{{ $.Values.global.registry }}/{{ .image }}:{{ index $.Values.imageTags .name }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .port }}
