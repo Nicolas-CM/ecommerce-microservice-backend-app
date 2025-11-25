@@ -9,6 +9,19 @@ global:
   imagePullSecrets:
     - name: ghcr-secret
 
+# Image tags per service - override in values-{env}.yaml
+imageTags:
+  cloud-config: latest
+  service-discovery: latest
+  api-gateway: latest
+  product-service: latest
+  order-service: latest
+  user-service: latest
+  payment-service: latest
+  shipping-service: latest
+  favourite-service: latest
+  proxy-client: latest
+
 # Configuración común para todos los microservicios
 common:
   replicas: 1
@@ -31,8 +44,7 @@ zipkin:
 microservices:
   - name: cloud-config
     isEureka: true
-    image: nicolas-cm/cloud-config  # Will be prefixed with global.registry
-    tag: latest  # Can be overridden via image-tags.yaml
+    image: nicolas-cm/cloud-config
     port: 9296
     type: ClusterIP
     env:
@@ -46,7 +58,6 @@ microservices:
   - name: service-discovery
     isEureka: true
     image: nicolas-cm/service-discovery
-    tag: latest
     port: 8761
     type: ClusterIP
     env:
@@ -63,7 +74,6 @@ microservices:
 
   - name: api-gateway
     image: nicolas-cm/api-gateway
-    tag: latest
     port: 8080
     type: LoadBalancer
     nodePort: 30080
@@ -90,7 +100,6 @@ microservices:
 
   - name: product-service
     image: nicolas-cm/product-service
-    tag: latest
     port: 8500
     type: ClusterIP
     contextPath: "/product-service"
@@ -116,7 +125,6 @@ microservices:
 
   - name: order-service
     image: nicolas-cm/order-service
-    tag: latest
     port: 8300
     type: ClusterIP
     contextPath: "/order-service"
@@ -142,7 +150,6 @@ microservices:
 
   - name: user-service
     image: nicolas-cm/user-service
-    tag: latest
     port: 8700
     type: ClusterIP
     contextPath: "/user-service"
@@ -168,7 +175,6 @@ microservices:
 
   - name: payment-service
     image: nicolas-cm/payment-service
-    tag: latest
     port: 8400
     type: ClusterIP
     contextPath: "/payment-service"
@@ -194,7 +200,6 @@ microservices:
 
   - name: shipping-service
     image: nicolas-cm/shipping-service
-    tag: latest
     port: 8600
     type: ClusterIP
     contextPath: "/shipping-service"
@@ -220,7 +225,6 @@ microservices:
 
   - name: favourite-service
     image: nicolas-cm/favourite-service
-    tag: latest
     port: 8800
     type: ClusterIP
     contextPath: "/favourite-service"
@@ -246,7 +250,6 @@ microservices:
 
   - name: proxy-client
     image: nicolas-cm/proxy-client
-    tag: latest
     port: 8900
     type: ClusterIP
     contextPath: "/app"
