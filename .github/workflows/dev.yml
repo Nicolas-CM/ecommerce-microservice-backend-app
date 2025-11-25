@@ -135,7 +135,9 @@ jobs:
         uses: azure/setup-kubectl@v3
 
       - name: Install Helm
-        uses: azure/setup-helm@v1
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
 
       - name: Create namespace
         run: |
@@ -173,7 +175,6 @@ jobs:
           echo "Deploying Helm chart to namespace ecommerce-dev..."
           helm upgrade --install ecommerce-microservices ./ecommerce-chart \
             --namespace ecommerce-dev \
-            --create-namespace \
             --values ./ecommerce-chart/values.yaml \
             --values ./image-tags-dev.yaml \
             --set global.environment=${{ env.ENVIRONMENT }} \
