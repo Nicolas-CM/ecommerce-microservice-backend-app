@@ -6,29 +6,6 @@ locals {
       Environment = var.environment_name
     }
   )
-
-  normalized_services = {
-    for service_name, service in var.service_definitions :
-    service_name => {
-      image = coalesce(
-        lookup(service, "image", null),
-        format(
-          "%s/%s:%s",
-          module.acr.login_server,
-          coalesce(lookup(service, "repository", null), service_name),
-          var.image_tag
-        )
-      )
-      container_port = lookup(service, "container_port", 8080)
-      cpu            = lookup(service, "cpu", 0.5)
-      memory_gb      = lookup(service, "memory_gb", 1)
-      ingress        = lookup(service, "ingress", null)
-      env            = lookup(service, "env", {})
-      secrets        = lookup(service, "secrets", {})
-      min_replicas   = lookup(service, "min_replicas", 1)
-      max_replicas   = lookup(service, "max_replicas", 2)
-    }
-  }
 }
 
 module "resource_group" {
@@ -47,15 +24,9 @@ module "network" {
   tags                = local.tags
 
   subnets = {
-    containerapps = {
-      name             = format("%s-apps-snet", local.name_prefix)
-      address_prefixes = [var.containerapps_subnet_cidr]
-      service_delegation = {
-        name = "Microsoft.App/environments"
-        actions = [
-          "Microsoft.Network/virtualNetworks/subnets/action"
-        ]
-      }
+    aks = {
+      name             = format("%s-aks-snet", local.name_prefix)
+      address_prefixes = [var.aks_subnet_cidr]
     }
   }
 }
@@ -69,50 +40,34 @@ module "log_analytics" {
   tags                = local.tags
 }
 
-module "acr" {
-  source              = "../../modules/acr"
-  name                = format("%sacr", replace(local.name_prefix, "-", ""))
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  sku                 = var.acr_sku
-  tags                = local.tags
+module "aks" {
+  source                     = "../../modules/aks"
+  name                       = format("%s-aks", local.name_prefix)
+  location                   = var.location
+  resource_group_name        = module.resource_group.name
+  dns_prefix                 = format("%s-aks", local.name_prefix)
+  kubernetes_version         = var.kubernetes_version
+  node_count                 = var.aks_node_count
+  vm_size                    = var.aks_vm_size
+  enable_auto_scaling        = var.aks_enable_auto_scaling
+  min_node_count             = var.aks_min_count
+  max_node_count             = var.aks_max_count
+  subnet_id                  = module.network.subnet_ids["aks"]
+  service_cidr               = var.aks_service_cidr
+  dns_service_ip             = var.aks_dns_service_ip
+  log_analytics_workspace_id = module.log_analytics.id
+  tags                       = local.tags
 }
 
-module "container_apps_env" {
-  source                         = "../../modules/container_apps_env"
-  name                           = format("%s-aca-env", local.name_prefix)
-  resource_group_name            = module.resource_group.name
-  location                       = var.location
-  log_analytics_workspace_id     = module.log_analytics.id
-  infrastructure_subnet_id       = module.network.subnet_ids["containerapps"]
-  internal_load_balancer_enabled = var.caenv_internal_lb
-  tags                           = local.tags
-}
-
-module "container_apps" {
-  for_each = local.normalized_services
-  source   = "../../modules/container_app"
-
-  name                  = format("%s-%s", local.name_prefix, each.key)
-  resource_group_name   = module.resource_group.name
-  location              = var.location
-  environment_id        = module.container_apps_env.id
-  image                 = each.value.image
-  registry_server       = module.acr.login_server
-  registry_username     = module.acr.admin_username
-  registry_password     = module.acr.admin_password
-  cpu                   = each.value.cpu
-  memory_gb             = each.value.memory_gb
-  environment_variables = merge(var.default_environment_variables, each.value.env)
-  secrets               = merge(var.default_secrets, each.value.secrets)
-  min_replicas          = each.value.min_replicas
-  max_replicas          = each.value.max_replicas
-  ingress = each.value.ingress == null ? null : merge(
-    {
-      transport                  = "auto"
-      allow_insecure_connections = false
-    },
-    each.value.ingress
-  )
-  tags = local.tags
+resource "azurerm_kubernetes_cluster_node_pool" "pool2" {
+  name                  = "pool2"
+  kubernetes_cluster_id = module.aks.id
+  vm_size               = "Standard_E2_v3"
+  vnet_subnet_id        = module.network.subnet_ids["aks"]
+  enable_auto_scaling   = true
+  min_count             = 1
+  max_count             = 3
+  node_count            = 1
+  mode                  = "User"
+  tags                  = local.tags
 }
