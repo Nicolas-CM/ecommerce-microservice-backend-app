@@ -81,7 +81,7 @@ jobs:
       - name: Build with Maven
         working-directory: ./${{ env.SERVICE_NAME }}
         run: |
-          mvn clean package -DskipTests
+          mvn clean package
           echo "✅ Build completed for ${{ env.SERVICE_NAME }}"
 
       - name: Log in to GitHub Container Registry

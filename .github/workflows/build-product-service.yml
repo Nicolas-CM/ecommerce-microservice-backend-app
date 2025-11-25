@@ -92,7 +92,7 @@ jobs:
           
       - name: Build with Maven
         working-directory: ./${{ env.SERVICE_NAME }}
-        run: mvn clean package -DskipTests
+        run: mvn clean package
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
