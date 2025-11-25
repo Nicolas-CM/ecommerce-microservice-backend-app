@@ -174,66 +174,76 @@ jobs:
         run: |
           echo "Deploying Helm chart to namespace ecommerce-dev..."
           
-          # Obtener las últimas versiones de las imágenes desde GHCR
-          # Estas fueron pusheadas por los workflows de build con tags como 0.1.0-dev.38191eb
-          echo "🔍 Detecting latest image versions from GHCR..."
+          # Detectar qué servicios cambiaron en este push
+          echo "🔍 Detecting changed services..."
+          CHANGED_SERVICES=""
           
-          # Función para obtener el último tag versionado (no dev-latest)
-          get_latest_version() {
-            SERVICE=$1
-            # Obtener todos los tags y filtrar por formato X.Y.Z-dev.SHA
-            LATEST=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/orgs/${{ github.repository_owner }}/packages/container/${SERVICE}/versions" \
-              --jq '[.[] | select(.metadata.container.tags[] | test("^[0-9]+\\.[0-9]+\\.[0-9]+-dev\\.[a-f0-9]+$")) | .metadata.container.tags[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+-dev\\.[a-f0-9]+$"))][0]' 2>/dev/null || echo "dev-latest")
-            echo "$LATEST"
-          }
+          # Mapeo de directorios a nombres de servicios
+          if git diff --name-only HEAD~1 HEAD | grep -q "^api-gateway/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES api-gateway"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^cloud-config/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES cloud-config"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^service-discovery/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES service-discovery"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^user-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES user-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^product-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES product-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^order-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^payment-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES payment-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^shipping-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES shipping-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^favourite-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES favourite-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^proxy-client/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES proxy-client"
+          fi
           
-          # Detectar versiones de cada servicio
-          API_GATEWAY_TAG=$(get_latest_version "api-gateway")
-          CLOUD_CONFIG_TAG=$(get_latest_version "cloud-config")
-          SERVICE_DISCOVERY_TAG=$(get_latest_version "service-discovery")
-          USER_SERVICE_TAG=$(get_latest_version "user-service")
-          PRODUCT_SERVICE_TAG=$(get_latest_version "product-service")
-          ORDER_SERVICE_TAG=$(get_latest_version "order-service")
-          PAYMENT_SERVICE_TAG=$(get_latest_version "payment-service")
-          SHIPPING_SERVICE_TAG=$(get_latest_version "shipping-service")
-          FAVOURITE_SERVICE_TAG=$(get_latest_version "favourite-service")
-          PROXY_CLIENT_TAG=$(get_latest_version "proxy-client")
-          
-          echo "📦 Using image versions:"
-          echo "  api-gateway: $API_GATEWAY_TAG"
-          echo "  cloud-config: $CLOUD_CONFIG_TAG"
-          echo "  service-discovery: $SERVICE_DISCOVERY_TAG"
-          echo "  user-service: $USER_SERVICE_TAG"
-          echo "  product-service: $PRODUCT_SERVICE_TAG"
-          echo "  order-service: $ORDER_SERVICE_TAG"
-          echo "  payment-service: $PAYMENT_SERVICE_TAG"
-          echo "  shipping-service: $SHIPPING_SERVICE_TAG"
-          echo "  favourite-service: $FAVOURITE_SERVICE_TAG"
-          echo "  proxy-client: $PROXY_CLIENT_TAG"
-          
-          # Deploy con Helm usando los tags versionados dinámicamente
-          helm upgrade --install ecommerce-microservices ./ecommerce-chart \
-            --namespace ecommerce-dev \
-            --values ./ecommerce-chart/values.yaml \
-            --values ./image-tags-dev.yaml \
-            --set global.environment=${{ env.ENVIRONMENT }} \
-            --set imageTags.api-gateway="$API_GATEWAY_TAG" \
-            --set imageTags.cloud-config="$CLOUD_CONFIG_TAG" \
-            --set imageTags.service-discovery="$SERVICE_DISCOVERY_TAG" \
-            --set imageTags.user-service="$USER_SERVICE_TAG" \
-            --set imageTags.product-service="$PRODUCT_SERVICE_TAG" \
-            --set imageTags.order-service="$ORDER_SERVICE_TAG" \
-            --set imageTags.payment-service="$PAYMENT_SERVICE_TAG" \
-            --set imageTags.shipping-service="$SHIPPING_SERVICE_TAG" \
-            --set imageTags.favourite-service="$FAVOURITE_SERVICE_TAG" \
-            --set imageTags.proxy-client="$PROXY_CLIENT_TAG" \
-            --wait \
-            --timeout 20m
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if [ -z "$CHANGED_SERVICES" ]; then
+            echo "⚠️  No service changes detected, deploying with existing tags"
+            helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+              --namespace ecommerce-dev \
+              --values ./ecommerce-chart/values.yaml \
+              --values ./image-tags-dev.yaml \
+              --set global.environment=${{ env.ENVIRONMENT }} \
+              --wait \
+              --timeout 20m
+          else
+            echo "📦 Changed services: $CHANGED_SERVICES"
+            
+            # Generar un valor único para forzar rollout SOLO de los servicios cambiados
+            ROLLOUT_ID=$(date +%s)-${GITHUB_SHA::7}
+            
+            # Construir los argumentos --set para cada servicio cambiado
+            SET_ARGS=""
+            for SERVICE in $CHANGED_SERVICES; do
+              # Para los servicios cambiados, agregar anotación de rollout
+              SET_ARGS="$SET_ARGS --set-string microservices[$SERVICE].rolloutId=$ROLLOUT_ID"
+            done
+            
+            echo "🔄 Rollout ID for changed services: $ROLLOUT_ID"
+            
+            # Deploy con Helm
+            helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+              --namespace ecommerce-dev \
+              --values ./ecommerce-chart/values.yaml \
+              --values ./image-tags-dev.yaml \
+              --set global.environment=${{ env.ENVIRONMENT }} \
+              $SET_ARGS \
+              --wait \
+              --timeout 20m
+          fi
 
       - name: Verify deployment
         if: always()
