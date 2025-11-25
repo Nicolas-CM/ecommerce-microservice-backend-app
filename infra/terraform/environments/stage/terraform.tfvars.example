@@ -1,15 +1,15 @@
-subscription_id  = "079ab1f2-9528-44da-ba22-d60a88fdb0b8"
-tenant_id        = "e994072b-523e-4bfe-86e2-442c5e10b244"
-location         = "eastus2"
-global_prefix    = "eco"
-environment_name = "stage"
+subscription_id = "079ab1f2-9528-44da-ba22-d60a88fdb0b8"
+tenant_id       = "e994072b-523e-4bfe-86e2-442c5e10b244"
+location        = "eastus"
+global_prefix   = "eco"
+environment_name = "dev"
 image_tag        = "v0.1.0"
 
-network_address_space     = ["10.30.0.0/16"]
-containerapps_subnet_cidr = "10.30.1.0/24"
-log_analytics_retention_days = 60
-acr_sku                       = "Premium"
-caenv_internal_lb             = true
+network_address_space    = ["10.20.0.0/16"]
+containerapps_subnet_cidr = "10.20.1.0/24"
+log_analytics_retention_days = 30
+acr_sku                    = "Standard"
+caenv_internal_lb          = false
 
 tags = {
   Project = "ecommerce-microservices"
@@ -17,8 +17,8 @@ tags = {
 }
 
 default_environment_variables = {
-  SPRING_PROFILES_ACTIVE = "stage"
-  CONFIG_SERVER_URL      = "https://cloud-config.stage.internal"
+  SPRING_PROFILES_ACTIVE = "dev"
+  CONFIG_SERVER_URL      = "https://cloud-config.dev.internal"
 }
 
 default_secrets = {}
@@ -31,8 +31,6 @@ service_definitions = {
       external_enabled = true
       target_port      = 8080
     }
-    min_replicas = 2
-    max_replicas = 4
   }
 
   user-service = {
@@ -42,8 +40,6 @@ service_definitions = {
       external_enabled = false
       target_port      = 8081
     }
-    min_replicas = 2
-    max_replicas = 4
   }
 
   product-service = {
