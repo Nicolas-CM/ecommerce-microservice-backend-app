@@ -101,6 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Important to fetch the previous commit for diffing
 
       - name: Azure Login
         uses: azure/login@v2
@@ -229,7 +231,8 @@ jobs:
             SET_ARGS=""
             for SERVICE in $CHANGED_SERVICES; do
               # Para los servicios cambiados, agregar anotación de rollout
-              SET_ARGS="$SET_ARGS --set-string microservices[$SERVICE].rolloutId=$ROLLOUT_ID"
+              # Usamos notación de punto para mapas: microservices.serviceName.rolloutId
+              SET_ARGS="$SET_ARGS --set-string microservices.$SERVICE.rolloutId=$ROLLOUT_ID"
             done
             
             echo "🔄 Rollout ID for changed services: $ROLLOUT_ID"
