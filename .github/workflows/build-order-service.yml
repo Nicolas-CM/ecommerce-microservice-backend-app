@@ -116,6 +116,7 @@ jobs:
             type=sha,prefix=${{ steps.bump_version.outputs.new_version }}-
             
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: ./${{ env.SERVICE_NAME }}
@@ -124,6 +125,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Output version for deployment
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          echo "SERVICE=order-service" >> $GITHUB_ENV
+          echo "VERSION=${{ steps.bump_version.outputs.new_version }}-dev.${{ steps.bump_version.outputs.short_sha }}" >> $GITHUB_ENV
+          echo "🏷️ Built version: ${{ steps.bump_version.outputs.new_version }}-dev.${{ steps.bump_version.outputs.short_sha }}"
           
       - name: Create and push git tag
         if: github.ref == 'refs/heads/main'

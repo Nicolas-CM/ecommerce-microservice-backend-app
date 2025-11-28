@@ -16,6 +16,10 @@ spec:
     metadata:
       labels:
         app: {{ .name }}
+      annotations:
+        {{- if .rolloutId }}
+        rollout-id: {{ .rolloutId | quote }}
+        {{- end }}
     spec:
       restartPolicy: Always
       {{- if $.Values.global.imagePullSecrets }}
