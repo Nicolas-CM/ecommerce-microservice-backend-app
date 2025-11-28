@@ -262,3 +262,30 @@ jobs:
           echo ""
           echo "=== Recent Events ==="
           kubectl get events -n ecommerce-dev --sort-by='.lastTimestamp' | tail -n 20
+
+  notify-failure:
+    name: Notify Failure or Cancellation
+    runs-on: ubuntu-latest
+    if: failure() || cancelled()
+    needs: [unit-tests, integration-tests, deploy]
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ Dev Pipeline Failed or Cancelled: ${{ github.repository }}"
+          body: |
+            The dev pipeline for ${{ github.repository }} has failed or was cancelled.
+
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Branch: dev
+
+            Check the logs here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          secure: true
