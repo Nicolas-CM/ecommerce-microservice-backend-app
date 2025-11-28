@@ -125,7 +125,7 @@ class UserServiceApplicationTests {
 
                 // Then: Verificar resultados
                 assertNotNull(result, "El resultado no debe ser null");
-                assertEquals("WrongName", result.getFirstName());
+                assertEquals("John", result.getFirstName());
                 assertEquals("Doe", result.getLastName());
                 assertEquals("john.doe@test.com", result.getEmail());
 
