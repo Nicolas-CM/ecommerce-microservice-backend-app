@@ -2,7 +2,7 @@ name: Build and Push Service Discovery
 
 on:
   push:
-    branches: [ dev, main ]
+    branches: [ dev ]
     paths:
       - 'service-discovery/**'
       - '.github/workflows/build-service-discovery.yml'
@@ -130,13 +130,13 @@ jobs:
         if: github.ref == 'refs/heads/dev'
         run: |
           echo "SERVICE=service-discovery" >> $GITHUB_ENV
-          echo "VERSION=${{ steps.bump_version.outputs.new_version }}-dev.${{ steps.bump_version.outputs.short_sha }}" >> $GITHUB_ENV
-          echo "🏷️ Built version: ${{ steps.bump_version.outputs.new_version }}-dev.${{ steps.bump_version.outputs.short_sha }}"
+          echo "VERSION=${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_ENV
+          echo "🏷️ Built version: ${{ steps.bump_version.outputs.new_version }}"
           
-      - name: Create and push git tag
-        if: github.ref == 'refs/heads/main'
+      - name: Create and push git tag (dev)
+        if: github.ref == 'refs/heads/dev'
         run: |
-          NEW_TAG="${{ env.SERVICE_NAME }}-v${{ steps.bump_version.outputs.new_version }}"
+          NEW_TAG="${{ env.SERVICE_NAME }}-${{ steps.bump_version.outputs.new_version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$NEW_TAG" -m "Release ${{ env.SERVICE_NAME }} version ${{ steps.bump_version.outputs.new_version }}"
