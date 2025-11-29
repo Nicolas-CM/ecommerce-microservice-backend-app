@@ -72,12 +72,26 @@ jobs:
           echo "   Java version: $(java -version 2>&1 | head -n 1)"
           
           chmod +x ./mvnw
-          ./mvnw -B -DskipTests=true sonar:sonar \
-            -Dsonar.host.url="$SONAR_HOST_URL" \
-            -Dsonar.login="$SONAR_TOKEN" \
-            -Dsonar.projectKey="ecommerce-stage" \
-            -Dsonar.projectName="ecommerce-stage" \
-            -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml,**/target/site/jacoco-aggregate/jacoco.xml"
+          
+          # Check if using SonarCloud (requires organization)
+          if [[ "$SONAR_HOST_URL" == *"sonarcloud.io"* ]]; then
+            echo "Using SonarCloud - organization parameter required"
+            ./mvnw -B -DskipTests=true sonar:sonar \
+              -Dsonar.host.url="$SONAR_HOST_URL" \
+              -Dsonar.login="$SONAR_TOKEN" \
+              -Dsonar.organization="${{ github.repository_owner }}" \
+              -Dsonar.projectKey="${{ github.repository_owner }}_ecommerce-stage" \
+              -Dsonar.projectName="ecommerce-stage" \
+              -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml,**/target/site/jacoco-aggregate/jacoco.xml"
+          else
+            echo "Using self-hosted SonarQube"
+            ./mvnw -B -DskipTests=true sonar:sonar \
+              -Dsonar.host.url="$SONAR_HOST_URL" \
+              -Dsonar.login="$SONAR_TOKEN" \
+              -Dsonar.projectKey="ecommerce-stage" \
+              -Dsonar.projectName="ecommerce-stage" \
+              -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml,**/target/site/jacoco-aggregate/jacoco.xml"
+          fi
 
       - name: 📤 Upload test reports
         if: always()
