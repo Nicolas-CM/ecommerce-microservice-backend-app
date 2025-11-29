@@ -116,7 +116,7 @@ jobs:
         run: |
           echo "Getting API Gateway External IP..."
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
               echo "✅ API Gateway IP: $EXTERNAL_IP"
@@ -221,7 +221,7 @@ jobs:
         id: get-ip
         run: |
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "API_GATEWAY_URL=http://$EXTERNAL_IP:8080" >> $GITHUB_ENV
               echo "✅ API Gateway: http://$EXTERNAL_IP:8080"
@@ -283,7 +283,7 @@ jobs:
         id: get-ip
         run: |
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "TARGET_URL=http://$EXTERNAL_IP:8080" >> $GITHUB_ENV
               echo "✅ Target: http://$EXTERNAL_IP:8080"
