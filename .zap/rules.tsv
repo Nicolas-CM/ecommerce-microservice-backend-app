@@ -1,0 +1,39 @@
+# ZAP Scanning Rules for E-commerce Microservices
+# Format: ruleid	action	url	parameter
+# Actions: IGNORE, WARN, FAIL
+
+# Ignore common false positives
+10021	IGNORE	http://.*	.*
+10027	IGNORE	http://.*	.*
+10096	IGNORE	http://.*	.*
+
+# Alert on SQL Injection (FAIL - Critical)
+40018	FAIL	http://.*	.*
+
+# Alert on XSS (FAIL - Critical)
+40012	FAIL	http://.*	.*
+40014	FAIL	http://.*	.*
+40016	FAIL	http://.*	.*
+40017	FAIL	http://.*	.*
+
+# Alert on Authentication issues (FAIL)
+10010	FAIL	http://.*	.*
+
+# Alert on CSRF (WARN)
+10202	WARN	http://.*	.*
+
+# Alert on Cookie Security (WARN)
+10054	WARN	http://.*	.*
+10055	WARN	http://.*	.*
+
+# Alert on Information Disclosure (WARN)
+10036	WARN	http://.*	.*
+10037	WARN	http://.*	.*
+
+# Alert on Server Misconfiguration (WARN)
+10020	WARN	http://.*	.*
+10098	WARN	http://.*	.*
+
+# Ignore actuator endpoints for some tests (they're expected to be exposed in dev/stage)
+10020	IGNORE	http://.*/actuator/.*	.*
+10037	IGNORE	http://.*/actuator/.*	.*
