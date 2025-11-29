@@ -67,15 +67,15 @@ jobs:
 
       - name: 🚀 Helm Deploy
         run: |
-          echo "Deploying to AKS with Helm..."
+            echo "Deploying to AKS with Helm..."
           
-          helm upgrade --install ecommerce-app ./ecommerce-chart \
-            --namespace ecommerce-stage \
-            --values ./ecommerce-chart/values.yaml \
-            --values ./image-tags-stage.yaml \
-            --set global.environment=stage
+            helm upgrade --install ecommerce-app ./k8s/helm/ecommerce-chart \
+              --namespace ecommerce-stage \
+              --values ./k8s/helm/ecommerce-chart/values.yaml \
+              --values ./k8s/helm/image-tags-stage.yaml \
+              --set global.environment=stage
 
-          echo "🎉 Helm deployment finished!"
+            echo "🎉 Helm deployment finished!"
 
   # ============================================================================
   # E2E TESTS (Postman/Newman)
