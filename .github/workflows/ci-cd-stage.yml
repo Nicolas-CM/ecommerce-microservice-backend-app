@@ -17,6 +17,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
+# NOTE: This Stage pipeline does NOT generate or bump versions. The canonical image tags for Stage
+# are stored in `k8s/helm/image-tags-stage.yaml` and are controlled manually via commits/PRs to the
+# `stage` branch. Dev builds are responsible for producing/tagging Docker images and creating Git
+# tags; Stage will only deploy what is declared in `image-tags-stage.yaml`.
+
 jobs:
   # ============================================================================
   # BUILD & TEST CON SONARQUBE (como flamini)
@@ -165,177 +170,14 @@ jobs:
           name: trivy-repo-scan
           path: trivy-repo-scan.sarif
 
-  # ============================================================================
-  # GENERATE VERSION TAG (stage-0.1.0-commit-timestamp)
-  # ============================================================================
-  calculate-semver:
-    name: 📋 Calculate Version
-    runs-on: ubuntu-latest
-    needs: [maven-build, trivy-scan]
-    outputs:
-      new_version: ${{ steps.generate.outputs.version }}
-      image_tag: ${{ steps.generate.outputs.image_tag }}
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🏷️ Generate Stage Version Tag
-        id: generate
-        run: |
-          # Get latest stage tag or default to 0.0.0
-          LATEST_TAG=$(git tag -l "stage-*" --sort=-version:refname | head -n1 || echo "stage-0.0.0")
-          
-          if [ "$LATEST_TAG" = "stage-0.0.0" ]; then
-            BASE_VERSION="0.1.0"
-          else
-            # Extract version from tag (e.g., stage-0.1.0-abc123-20240115)
-            BASE_VERSION=$(echo $LATEST_TAG | sed -E 's/stage-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-            
-            # Increment patch version
-            MAJOR=$(echo $BASE_VERSION | cut -d. -f1)
-            MINOR=$(echo $BASE_VERSION | cut -d. -f2)
-            PATCH=$(echo $BASE_VERSION | cut -d. -f3)
-            PATCH=$((PATCH + 1))
-            BASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          fi
-          
-          # Generate short commit sha (7 chars)
-          if [ -n "${GITHUB_SHA:-}" ]; then
-            COMMIT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
-          else
-            COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-          fi
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          # Build tag format as requested: 0.1.0-stage.372d17b (no timestamp)
-          IMAGE_TAG="${BASE_VERSION}-stage.${COMMIT_SHA}"
-          FULL_VERSION="$IMAGE_TAG"
-
-          # Validate BASE_VERSION format (x.y.z), fallback to 0.1.0 if invalid
-          if ! echo "${BASE_VERSION}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null 2>&1; then
-            echo "⚠️  BASE_VERSION format invalid: ${BASE_VERSION}, defaulting to 0.1.0"
-            BASE_VERSION="0.1.0"
-            IMAGE_TAG="${BASE_VERSION}-stage.${COMMIT_SHA}"
-            FULL_VERSION="$IMAGE_TAG"
-          fi
-
-          # Sanitize IMAGE_TAG for Docker: lowercase, remove leading non-alphanum, replace invalid chars with '-'
-          IMAGE_TAG_SANITIZED=$(echo "$IMAGE_TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[^a-z0-9]+//g' | sed -E 's/[^a-z0-9._-]+/-/g' | sed -E 's/[-]{2,}/-/g' | sed -E 's/^[._-]+//g' | sed -E 's/[._-]+$//g')
-          if [ -z "$IMAGE_TAG_SANITIZED" ]; then
-            echo "⚠️  Generated image tag '$IMAGE_TAG' could not be sanitized. Defaulting to 0.1.0-unknown"
-            IMAGE_TAG_SANITIZED="0.1.0-unknown-${TIMESTAMP}"
-          fi
-          IMAGE_TAG="$IMAGE_TAG_SANITIZED"
-
-          # Sanitize FULL_VERSION for use as git tag
-          FULL_VERSION_SANITIZED=$(echo "$FULL_VERSION" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g' | sed -E 's/[-]{2,}/-/g' | sed -E 's/^[._-]+//g' | sed -E 's/[._-]+$//g')
-          
-          echo "Generated version: $FULL_VERSION => sanitized: $FULL_VERSION_SANITIZED"
-          echo "Image tag: $IMAGE_TAG (sanitized: $IMAGE_TAG_SANITIZED)"
-          
-          # Export both values
-          echo "image_tag=$IMAGE_TAG_SANITIZED" >> $GITHUB_OUTPUT
-          echo "version=$FULL_VERSION_SANITIZED" >> $GITHUB_OUTPUT
+  # NOTE: Stage should NOT generate/assign versions; Dev workflow is responsible for building and producing tags.
+  # The Stage pipeline uses `k8s/helm/image-tags-stage.yaml` as the canonical source for image tags and will
+  # deploy based on that file only. All automated stage versioning logic and outputs have been removed.
 
   # ============================================================================
   # DOCKER BUILD & PUSH
   # ============================================================================
-  docker-build:
-    name: 🐳 Build ${{ matrix.service }}
-    runs-on: ubuntu-latest
-    needs: [maven-build, calculate-semver]
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - api-gateway
-          - cloud-config
-          - service-discovery
-          - proxy-client
-          - user-service
-          - product-service
-          - order-service
-          - payment-service
-          - shipping-service
-          - favourite-service
-    steps:
-      - name: 🧭 Normalize Image Owner (lowercase)
-        run: |
-          # Normalize the OWNER (Image prefix) to lowercase so ghcr repo path is valid
-          OWNER_LOWER=$(echo "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')
-          echo "OWNER_LOWER=$OWNER_LOWER" >> $GITHUB_ENV
-        env:
-          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-      - name: 📥 Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace
-
-      - name: 🐞 Debug - show computed tag values
-        run: |
-          echo "DEBUG: OWNER_LOWER=$OWNER_LOWER"
-          echo "DEBUG: REGISTRY=$REGISTRY"
-          echo "DEBUG: SERVICE=${{ matrix.service }}"
-          echo "DEBUG: IMAGE_TAG=${{ needs.calculate-semver.outputs.image_tag }}"
-          echo "DEBUG: NEW_VERSION=${{ needs.calculate-semver.outputs.new_version }}"
-
-      - name: 🔐 Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🏗️ Build and Push Docker Image
-        run: |
-          SERVICE="${{ matrix.service }}"
-          IMAGE_TAG="${{ needs.calculate-semver.outputs.image_tag }}"
-          # Validate image tag for Docker (must not start with invalid characters)
-          if [[ -z "$IMAGE_TAG" ]]; then
-            echo "❌ IMAGE_TAG is empty - aborting"
-            exit 1
-          fi
-          if [[ ! "$IMAGE_TAG" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
-            echo "❌ Derived IMAGE_TAG '$IMAGE_TAG' is invalid for Docker tag format."
-            echo "   Valid characters: lowercase letters, digits, ., _, - and must start with alphanumeric."
-            echo "   Please check generate-semver step or the repository tags."
-            exit 1
-          fi
-          FULL_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:${IMAGE_TAG}"
-          LATEST_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:stage-latest"
-          
-          echo "Building $SERVICE with tag $IMAGE_TAG"
-          echo "Full image: $FULL_IMAGE"
-          
-          cd $SERVICE
-          docker build -t $FULL_IMAGE -t $LATEST_IMAGE .
-          docker push $FULL_IMAGE
-          docker push $LATEST_IMAGE
-          
-          echo "✅ Pushed $FULL_IMAGE"
-          echo "✅ Pushed $LATEST_IMAGE"
-
-      - name: 🔍 Scan Docker Image with Trivy (CLI)
-        env:
-          SERVICE: ${{ matrix.service }}
-          IMAGE_TAG: ${{ needs.calculate-semver.outputs.image_tag }}
-        run: |
-          # Install trivy
-          sudo apt-get update && sudo apt-get install -y wget gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update && sudo apt-get install -y trivy
-          FULL_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:${IMAGE_TAG}"
-          echo "Scanning image: $FULL_IMAGE"
-          trivy image --exit-code 0 --format sarif --output trivy-${SERVICE}.sarif $FULL_IMAGE || echo "trivy returned non-zero exit code"
-
-      - name: 📤 Upload Image Scan Results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-${{ matrix.service }}.sarif'
-          category: 'trivy-${{ matrix.service }}'
+  # No Docker builds in Stage pipeline; builds happen on `dev` workflows per microservice
 
   # ============================================================================
   # DEPLOY TO AKS STAGE
@@ -343,8 +185,8 @@ jobs:
   kubernetes-deploy:
     name: 🚀 Deploy to AKS Stage
     runs-on: ubuntu-latest
-    needs: [docker-build, calculate-semver]
-    environment: stage
+    needs: [maven-build, trivy-scan]
+    environment: ecommerce-stage
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
@@ -367,39 +209,67 @@ jobs:
           resource-group: ${{ secrets.AKS_RG }}
           cluster-name: ${{ secrets.AKS_NAME }}
 
-      - name: 🔄 Update Deployments
+      - name: 🧭 Normalize Image Owner (lowercase)
         run: |
-          IMAGE_TAG="${{ needs.calculate-semver.outputs.image_tag }}"
-            REGISTRY="${{ env.REGISTRY }}/${OWNER_LOWER}"
-          
-          echo "Updating deployments with image tag: $IMAGE_TAG"
-          
-          # List of application services
-          declare -a SERVICES=(
-            "api-gateway"
-            "cloud-config"
-            "service-discovery"
-            "proxy-client"
-            "user-service"
-            "product-service"
-            "order-service"
-            "payment-service"
-            "shipping-service"
-            "favourite-service"
-          )
-          
-          for SERVICE in "${SERVICES[@]}"; do
-            echo "Updating $SERVICE..."
-            
-            if kubectl get deployment ${SERVICE} -n stage 2>/dev/null; then
-              kubectl set image deployment/${SERVICE} \
-                ${SERVICE}=${REGISTRY}/${SERVICE}:${IMAGE_TAG} \
-                -n stage
-              echo "✅ Updated $SERVICE"
-            else
-              echo "⚠️  Deployment $SERVICE not found, skipping..."
+          OWNER_LOWER=$(echo "${{ env.IMAGE_PREFIX }}" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LOWER=${OWNER_LOWER}" >> $GITHUB_ENV
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: 🧩 Ensure jq is installed
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq || true
+
+      - name: Create namespace `ecommerce-stage`
+        run: |
+          kubectl create namespace ecommerce-stage --dry-run=client -o yaml | kubectl apply -f -
+          echo "Namespace ecommerce-stage ready"
+          kubectl get namespace ecommerce-stage
+
+      - name: Create GHCR secret (if provided)
+        run: |
+          if [ -n "${{ secrets.GHCR_TOKEN }}" ]; then
+            kubectl create secret docker-registry ghcr-secret --docker-server=ghcr.io --docker-username=${{ secrets.GHCR_USERNAME }} --docker-password=${{ secrets.GHCR_TOKEN }} --namespace=ecommerce-stage || true
+          else
+            echo "GHCR_TOKEN not provided, skipping secret creation"
+          fi
+
+      - name: 🔄 Deploy Helm chart to Stage (Helm upgrade/install)
+        working-directory: k8s/helm
+        run: |
+          echo "Deploying Helm chart to namespace ecommerce-stage..."
+          echo "Using image tags from k8s/helm/image-tags-stage.yaml (user-controlled)"
+
+          echo "Using image tags from k8s/helm/image-tags-stage.yaml (user-controlled)"
+
+          # Clean up failed or pending releases similar to the DEV pipeline behavior
+          if helm list -n ecommerce-stage | grep -q ecommerce-microservices; then
+            RELEASE_STATUS=$(helm status ecommerce-microservices -n ecommerce-stage -o json | jq -r '.info.status')
+            echo "Found release with status: $RELEASE_STATUS"
+            if [ "$RELEASE_STATUS" = "failed" ] || [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ]; then
+              echo "Cleaning up failed/pending release..."
+              helm uninstall ecommerce-microservices -n ecommerce-stage || true
+              sleep 5
             fi
-          done
+          else
+            echo "No existing release found"
+          fi
+
+          # Always include the image-tags file so Helm has the canonical tags
+          helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+            --namespace ecommerce-stage \
+            --values ./ecommerce-chart/values.yaml \
+            --values ./image-tags-stage.yaml \
+            --set global.environment=stage \
+            --wait --timeout 20m
 
       - name: ⏳ Wait for Rollouts
         run: |
@@ -419,10 +289,10 @@ jobs:
           FAILED_DEPLOYMENTS=()
           
           for SERVICE in "${SERVICES[@]}"; do
-            if kubectl get deployment ${SERVICE} -n stage 2>/dev/null; then
+            if kubectl get deployment ${SERVICE} -n ecommerce-stage 2>/dev/null; then
               echo "⏳ Waiting for $SERVICE rollout..."
               
-              if kubectl rollout status deployment/${SERVICE} -n stage --timeout=10m; then
+              if kubectl rollout status deployment/${SERVICE} -n ecommerce-stage --timeout=10m; then
                 echo "✅ $SERVICE rolled out successfully"
               else
                 echo "❌ $SERVICE rollout failed"
@@ -441,9 +311,9 @@ jobs:
       - name: 🔍 Verify Services
         run: |
           echo "📋 Final Kubernetes State:"
-          kubectl get deployments -n stage
-          kubectl get pods -n stage -o wide
-          kubectl get services -n stage
+          kubectl get deployments -n ecommerce-stage
+          kubectl get pods -n ecommerce-stage -o wide
+          kubectl get services -n ecommerce-stage
 
   # ============================================================================
   # E2E TESTS (Postman/Newman)
@@ -451,7 +321,7 @@ jobs:
   e2e-tests:
     name: 🧪 E2E Tests
     runs-on: ubuntu-latest
-    needs: [kubernetes-deploy, calculate-semver]
+    needs: [kubernetes-deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
@@ -484,7 +354,7 @@ jobs:
         run: |
           echo "Getting API Gateway External IP..."
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
               echo "✅ API Gateway IP: $EXTERNAL_IP"
@@ -553,7 +423,7 @@ jobs:
   performance-tests:
     name: 📊 Performance Tests
     runs-on: ubuntu-latest
-    needs: [kubernetes-deploy, calculate-semver]
+    needs: [kubernetes-deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
@@ -589,7 +459,7 @@ jobs:
         id: get-ip
         run: |
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "API_GATEWAY_URL=http://$EXTERNAL_IP:8080" >> $GITHUB_ENV
               echo "✅ API Gateway: http://$EXTERNAL_IP:8080"
@@ -624,7 +494,7 @@ jobs:
   security-tests:
     name: 🔐 OWASP ZAP Security Scan
     runs-on: ubuntu-latest
-    needs: [kubernetes-deploy, calculate-semver]
+    needs: [kubernetes-deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
@@ -651,7 +521,7 @@ jobs:
         id: get-ip
         run: |
           for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl get svc api-gateway -n stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
             if [ ! -z "$EXTERNAL_IP" ]; then
               echo "TARGET_URL=http://$EXTERNAL_IP:8080" >> $GITHUB_ENV
               echo "✅ Target: http://$EXTERNAL_IP:8080"
@@ -677,77 +547,7 @@ jobs:
             report_md.md
           retention-days: 7
 
-  # ============================================================================
-  # CREATE GITHUB RELEASE
-  # ============================================================================
-  create-release:
-    name: 📦 Create Stage Release
-    runs-on: ubuntu-latest
-    needs: [calculate-semver, e2e-tests, performance-tests, security-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && success()
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🏷️ Create Git Tag
-        run: |
-          VERSION="${{ needs.calculate-semver.outputs.new_version }}"
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git tag -a $VERSION -m "Stage Release $VERSION"
-          git push origin $VERSION
-          
-          echo "✅ Created tag: $VERSION"
-
-      - name: 📝 Generate Release Notes
-        id: notes
-        run: |
-          VERSION="${{ needs.calculate-semver.outputs.new_version }}"
-          IMAGE_TAG="${{ needs.calculate-semver.outputs.image_tag }}"
-          
-          cat << EOF > release_notes.md
-          # Stage Release $VERSION
-          
-          ## 🚀 Deployment Information
-          - **Version**: \`$VERSION\`
-          - **Image Tag**: \`$IMAGE_TAG\`
-          - **Deployment Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          - **Environment**: Stage
-          
-          ## ✅ Validation Summary
-          - ✅ Unit tests passed
-          - ✅ SonarQube analysis completed
-          - ✅ Trivy security scan passed
-          - ✅ Docker images built and pushed
-          - ✅ Deployed to AKS Stage
-          - ✅ E2E tests executed
-          - ✅ Performance tests completed
-          - ✅ OWASP ZAP security scan executed
-          
-          ## 📦 Container Images
-          All services available at:
-          \`ghcr.io/$OWNER_LOWER/<service>:$IMAGE_TAG\`
-          
-          ## 🔗 Artifacts
-          - [E2E Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          - [Performance Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          - [Security Scan Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          EOF
-
-      - name: 🎉 Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ needs.calculate-semver.outputs.new_version }}
-          name: Stage ${{ needs.calculate-semver.outputs.new_version }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Note: Stage no longer creates GitHub Releases; releases & versioning are handled by Dev builds and git tags
 
   # ============================================================================
   # NOTIFY ON FAILURE
@@ -755,7 +555,7 @@ jobs:
   notify-failure:
     name: 📧 Notify Failure
     runs-on: ubuntu-latest
-    needs: [maven-build, trivy-scan, docker-build, kubernetes-deploy, e2e-tests, performance-tests, security-tests]
+    needs: [maven-build, trivy-scan, kubernetes-deploy, e2e-tests, performance-tests, security-tests]
     if: failure()
     steps:
       - name: 📧 Send Failure Email
