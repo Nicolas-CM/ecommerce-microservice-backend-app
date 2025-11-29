@@ -2,7 +2,7 @@ name: MASTER - Production Pipeline with Full Testing
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master-nothing, main ]
   workflow_dispatch:
 
 jobs:
