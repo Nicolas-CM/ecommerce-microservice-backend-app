@@ -83,6 +83,7 @@ jobs:
   e2e-tests:
     name: 🧪 E2E Tests
     runs-on: ubuntu-latest
+    environment: stage
     needs: [kubernetes-deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
