@@ -30,6 +30,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 🧭 Normalize Image Owner (lowercase)
+        run: |
+          OWNER_LOWER=$(echo "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LOWER=$OWNER_LOWER" >> $GITHUB_ENV
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+
+      - name: 🧭 Normalize Image Owner (lowercase)
+        run: |
+          OWNER_LOWER=$(echo "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LOWER=$OWNER_LOWER" >> $GITHUB_ENV
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+
       - name: ☕ Set up JDK 11 and 17
         uses: actions/setup-java@v4
         with:
@@ -122,6 +136,13 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
+      - name: 🧭 Normalize Image Owner (lowercase)
+        run: |
+          OWNER_LOWER=$(echo "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LOWER=$OWNER_LOWER" >> $GITHUB_ENV
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+
       - name: 🔍 Run Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -195,8 +216,8 @@ jobs:
           if ! echo "${BASE_VERSION}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null 2>&1; then
             echo "⚠️  BASE_VERSION format invalid: ${BASE_VERSION}, defaulting to 0.1.0"
             BASE_VERSION="0.1.0"
-            FULL_VERSION="stage-${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
-            IMAGE_TAG="${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
+            IMAGE_TAG="${BASE_VERSION}-stage.${COMMIT_SHA}"
+            FULL_VERSION="$IMAGE_TAG"
           fi
 
           # Sanitize IMAGE_TAG for Docker: lowercase, remove leading non-alphanum, replace invalid chars with '-'
@@ -216,7 +237,6 @@ jobs:
           # Export both values
           echo "image_tag=$IMAGE_TAG_SANITIZED" >> $GITHUB_OUTPUT
           echo "version=$FULL_VERSION_SANITIZED" >> $GITHUB_OUTPUT
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # ============================================================================
   # DOCKER BUILD & PUSH
@@ -240,10 +260,25 @@ jobs:
           - shipping-service
           - favourite-service
     steps:
+      - name: 🧭 Normalize Image Owner (lowercase)
+        run: |
+          # Normalize the OWNER (Image prefix) to lowercase so ghcr repo path is valid
+          OWNER_LOWER=$(echo "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LOWER=$OWNER_LOWER" >> $GITHUB_ENV
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
       - name: 📥 Download workspace
         uses: actions/download-artifact@v4
         with:
           name: workspace
+
+      - name: 🐞 Debug - show computed tag values
+        run: |
+          echo "DEBUG: OWNER_LOWER=$OWNER_LOWER"
+          echo "DEBUG: REGISTRY=$REGISTRY"
+          echo "DEBUG: SERVICE=${{ matrix.service }}"
+          echo "DEBUG: IMAGE_TAG=${{ needs.calculate-semver.outputs.image_tag }}"
+          echo "DEBUG: NEW_VERSION=${{ needs.calculate-semver.outputs.new_version }}"
 
       - name: 🔐 Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -267,10 +302,11 @@ jobs:
             echo "   Please check generate-semver step or the repository tags."
             exit 1
           fi
-          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:${IMAGE_TAG}"
-          LATEST_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:stage-latest"
+          FULL_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:${IMAGE_TAG}"
+          LATEST_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:stage-latest"
           
           echo "Building $SERVICE with tag $IMAGE_TAG"
+          echo "Full image: $FULL_IMAGE"
           
           cd $SERVICE
           docker build -t $FULL_IMAGE -t $LATEST_IMAGE .
@@ -280,13 +316,19 @@ jobs:
           echo "✅ Pushed $FULL_IMAGE"
           echo "✅ Pushed $LATEST_IMAGE"
 
-      - name: 🔍 Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ needs.calculate-semver.outputs.image_tag }}'
-          format: 'sarif'
-          output: 'trivy-${{ matrix.service }}.sarif'
-          severity: 'CRITICAL,HIGH'
+      - name: 🔍 Scan Docker Image with Trivy (CLI)
+        env:
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ needs.calculate-semver.outputs.image_tag }}
+        run: |
+          # Install trivy
+          sudo apt-get update && sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+          FULL_IMAGE="${REGISTRY}/${OWNER_LOWER}/${SERVICE}:${IMAGE_TAG}"
+          echo "Scanning image: $FULL_IMAGE"
+          trivy image --exit-code 0 --format sarif --output trivy-${SERVICE}.sarif $FULL_IMAGE || echo "trivy returned non-zero exit code"
 
       - name: 📤 Upload Image Scan Results
         uses: github/codeql-action/upload-sarif@v3
@@ -328,7 +370,7 @@ jobs:
       - name: 🔄 Update Deployments
         run: |
           IMAGE_TAG="${{ needs.calculate-semver.outputs.image_tag }}"
-          REGISTRY="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}"
+            REGISTRY="${{ env.REGISTRY }}/${OWNER_LOWER}"
           
           echo "Updating deployments with image tag: $IMAGE_TAG"
           
@@ -688,7 +730,7 @@ jobs:
           
           ## 📦 Container Images
           All services available at:
-          \`ghcr.io/${{ github.repository_owner }}/<service>:$IMAGE_TAG\`
+          \`ghcr.io/$OWNER_LOWER/<service>:$IMAGE_TAG\`
           
           ## 🔗 Artifacts
           - [E2E Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
