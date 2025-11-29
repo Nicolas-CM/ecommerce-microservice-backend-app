@@ -310,6 +310,7 @@ jobs:
           target: ${{ env.TARGET_URL }}
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
+          artifact_name: 'zap-scan-results'
 
       - name: 📤 Upload ZAP Results
         if: always()
