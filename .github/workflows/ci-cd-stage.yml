@@ -80,8 +80,8 @@ jobs:
               -Dsonar.host.url="$SONAR_HOST_URL" \
               -Dsonar.login="$SONAR_TOKEN" \
               -Dsonar.organization="${{ github.repository_owner }}" \
-              -Dsonar.projectKey="${{ github.repository_owner }}_ecommerce-stage" \
-              -Dsonar.projectName="ecommerce-stage" \
+              -Dsonar.projectKey="Nicolas-CM_ecommerce-microservice-backend-app" \
+              -Dsonar.projectName="ecommerce-microservice-backend-app" \
               -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml,**/target/site/jacoco-aggregate/jacoco.xml"
           else
             echo "Using self-hosted SonarQube"
