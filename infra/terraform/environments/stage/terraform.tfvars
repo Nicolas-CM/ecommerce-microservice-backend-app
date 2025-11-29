@@ -1,6 +1,6 @@
 subscription_id  = "e1a90c9e-5db0-43f3-9c1f-81fcea17e6bc"
 tenant_id        = "e994072b-523e-4bfe-86e2-442c5e10b244"
-location         = "mexicocentral"
+location         = "chilecentral"
 global_prefix    = "eco"
 environment_name = "stage"
 

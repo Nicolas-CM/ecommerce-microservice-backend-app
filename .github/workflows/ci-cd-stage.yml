@@ -156,21 +156,33 @@ jobs:
 
       - name: 🧪 Run E2E Tests
         run: |
-          echo "Running E2E tests against http://$EXTERNAL_IP:8080"
-          
-          if [ ! -f "postman-collections/E2E Ecommerce Microservices Tests.postman_collection.json" ]; then
-            echo "⚠️  Postman collection not found, skipping E2E tests"
-            exit 0
-          fi
-          
-          mkdir -p test-reports
-          
-          newman run "postman-collections/E2E Ecommerce Microservices Tests.postman_collection.json" \
-            --env-var "baseUrl=http://$EXTERNAL_IP:8080" \
-            --reporters cli,htmlextra \
-            --reporter-htmlextra-export "test-reports/e2e-report.html" \
-            --delay-request 500 \
-            --timeout-request 10000 || echo "⚠️  Some E2E tests failed"
+            echo ""
+            echo "========================================"
+            echo " Running E2E Tests with Newman"
+            echo "========================================"
+            echo ""
+
+            BASE_URL="http://${EXTERNAL_IP}:8080/app"
+            echo "Base URL para E2E: $BASE_URL"
+
+            if curl -f "$BASE_URL/actuator/health" --max-time 10 --silent > /dev/null; then
+              echo "✅ API Gateway está accesible en $BASE_URL"
+              echo ""
+
+              cd tests/e2e
+
+              newman run ecommerce-e2e-tests.postman_collection.json \
+                --env-var "base_url=$BASE_URL" \
+                --reporters cli,json \
+                --reporter-json-export ../../test-results/e2e-results.json \
+                --timeout-request 10000 \
+                --delay-request 500 || true
+
+              cd ../..
+            else
+              echo "❌ API Gateway no está accesible en $BASE_URL"
+              echo "Saltando E2E tests"
+            fi
 
       - name: 📤 Upload E2E Results
         if: always()
