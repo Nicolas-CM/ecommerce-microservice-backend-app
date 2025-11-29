@@ -102,12 +102,20 @@ jobs:
             type=raw,value=dev-latest,enable=${{ github.ref == 'refs/heads/dev' }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: ./${{ env.SERVICE_NAME }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Output version for deployment
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          echo "SERVICE=proxy-client" >> $GITHUB_ENV
+          echo "VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+          echo "🏷️ Built version: ${{ steps.version.outputs.version }}"
 
       - name: Create Git tag (main branch only)
         if: github.ref == 'refs/heads/main'

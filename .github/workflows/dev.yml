@@ -101,6 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Important to fetch the previous commit for diffing
 
       - name: Azure Login
         uses: azure/login@v2
@@ -173,13 +175,78 @@ jobs:
         working-directory: k8s/helm
         run: |
           echo "Deploying Helm chart to namespace ecommerce-dev..."
-          helm upgrade --install ecommerce-microservices ./ecommerce-chart \
-            --namespace ecommerce-dev \
-            --values ./ecommerce-chart/values.yaml \
-            --values ./image-tags-dev.yaml \
-            --set global.environment=${{ env.ENVIRONMENT }} \
-            --wait \
-            --timeout 20m
+          
+          # Detectar qué servicios cambiaron en este push
+          echo "🔍 Detecting changed services..."
+          CHANGED_SERVICES=""
+          
+          # Mapeo de directorios a nombres de servicios
+          if git diff --name-only HEAD~1 HEAD | grep -q "^api-gateway/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES api-gateway"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^cloud-config/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES cloud-config"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^service-discovery/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES service-discovery"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^user-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES user-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^product-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES product-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^order-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^payment-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES payment-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^shipping-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES shipping-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^favourite-service/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES favourite-service"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q "^proxy-client/"; then
+            CHANGED_SERVICES="$CHANGED_SERVICES proxy-client"
+          fi
+          
+          if [ -z "$CHANGED_SERVICES" ]; then
+            echo "⚠️  No service changes detected, deploying with existing tags"
+            helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+              --namespace ecommerce-dev \
+              --values ./ecommerce-chart/values.yaml \
+              --values ./image-tags-dev.yaml \
+              --set global.environment=${{ env.ENVIRONMENT }} \
+              --wait \
+              --timeout 20m
+          else
+            echo "📦 Changed services: $CHANGED_SERVICES"
+            
+            # Generar un valor único para forzar rollout SOLO de los servicios cambiados
+            ROLLOUT_ID=$(date +%s)-${GITHUB_SHA::7}
+            
+            # Construir los argumentos --set para cada servicio cambiado
+            SET_ARGS=""
+            for SERVICE in $CHANGED_SERVICES; do
+              # Para los servicios cambiados, agregar anotación de rollout
+              # Usamos notación de punto para mapas: microservices.serviceName.rolloutId
+              SET_ARGS="$SET_ARGS --set-string microservices.$SERVICE.rolloutId=$ROLLOUT_ID"
+            done
+            
+            echo "🔄 Rollout ID for changed services: $ROLLOUT_ID"
+            
+            # Deploy con Helm
+            helm upgrade --install ecommerce-microservices ./ecommerce-chart \
+              --namespace ecommerce-dev \
+              --values ./ecommerce-chart/values.yaml \
+              --values ./image-tags-dev.yaml \
+              --set global.environment=${{ env.ENVIRONMENT }} \
+              $SET_ARGS \
+              --wait \
+              --timeout 20m
+          fi
 
       - name: Verify deployment
         if: always()
@@ -195,3 +262,30 @@ jobs:
           echo ""
           echo "=== Recent Events ==="
           kubectl get events -n ecommerce-dev --sort-by='.lastTimestamp' | tail -n 20
+
+  notify-failure:
+    name: Notify Failure or Cancellation
+    runs-on: ubuntu-latest
+    if: failure() || cancelled()
+    needs: [unit-tests, integration-tests, deploy]
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ Dev Pipeline Failed or Cancelled: ${{ github.repository }}"
+          body: |
+            The dev pipeline for ${{ github.repository }} has failed or was cancelled.
+
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Branch: dev
+
+            Check the logs here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          secure: true
