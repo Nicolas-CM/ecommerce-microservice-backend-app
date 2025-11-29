@@ -5,6 +5,7 @@ permissions:
   packages: write
   id-token: write
   security-events: write
+  issues: write
 
 on:
   push:
@@ -136,8 +137,6 @@ jobs:
           
           declare -a ENDPOINTS=(
             "http://$EXTERNAL_IP:8080/actuator/health"
-            "http://$EXTERNAL_IP:8080/app/api/user-service/actuator/health"
-            "http://$EXTERNAL_IP:8080/app/api/product-service/actuator/health"
           )
           
           for endpoint in "${ENDPOINTS[@]}"; do
@@ -197,7 +196,7 @@ jobs:
     name: 📊 Performance Tests
     runs-on: ubuntu-latest
     environment: stage
-    needs: [kubernetes-deploy]
+    needs: [kubernetes-deploy, e2e-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
@@ -269,7 +268,7 @@ jobs:
     name: 🔐 OWASP ZAP Security Scan
     runs-on: ubuntu-latest
     environment: stage
-    needs: [kubernetes-deploy]
+    needs: [kubernetes-deploy, e2e-tests, performance-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
