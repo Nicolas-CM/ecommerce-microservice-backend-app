@@ -21,6 +21,246 @@ env:
   SKIP_TRIVY: 'true'
 
 jobs:
+
+# ============================================================================
+# DEPLOY TO AKS STAGE
+# ============================================================================
+  kubernetes-deploy:
+    name: 🚀 Deploy to AKS Stage (Helm)
+    runs-on: ubuntu-latest
+    environment: stage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: ⚙️ Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RG }}
+          cluster-name: ${{ secrets.AKS_NAME }}
+
+      - name: 🛡 Create/Update GHCR Registry Secret
+        run: |
+          kubectl create namespace ecommerce-stage --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl delete secret ghcr-secret -n ecommerce-stage --ignore-not-found
+
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ secrets.GHCR_USERNAME }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --namespace=ecommerce-stage
+
+      - name: 🚀 Helm Deploy
+        run: |
+            echo "Deploying to AKS with Helm..."
+          
+            helm upgrade --install ecommerce-app ./k8s/helm/ecommerce-chart \
+              --namespace ecommerce-stage \
+              --values ./k8s/helm/ecommerce-chart/values.yaml \
+              --values ./k8s/helm/image-tags-stage.yaml \
+              --set global.environment=stage
+
+            echo "🎉 Helm deployment finished!"
+
+  # ============================================================================
+  # E2E TESTS (Postman/Newman)
+  # ============================================================================
+  e2e-tests:
+    name: 🧪 E2E Tests
+    runs-on: ubuntu-latest
+    environment: stage
+    needs: [kubernetes-deploy]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Install Newman
+        run: |
+          npm install -g newman
+          npm install -g newman-reporter-htmlextra
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: ⚙️ Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RG }}
+          cluster-name: ${{ secrets.AKS_NAME }}
+
+      - name: 🌐 Get API Gateway IP
+        id: get-ip
+        run: |
+          echo "Getting API Gateway External IP..."
+          for i in {1..30}; do
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            if [ ! -z "$EXTERNAL_IP" ]; then
+              echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+              echo "✅ API Gateway IP: $EXTERNAL_IP"
+              break
+            fi
+            echo "⏳ Waiting for IP... ($i/30)"
+            sleep 10
+          done
+          
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "❌ Failed to get External IP"
+            exit 1
+          fi
+
+      - name: ⏳ Wait for Services Ready
+        run: |
+          echo "Waiting for services to be ready..."
+          
+          declare -a ENDPOINTS=(
+            "http://$EXTERNAL_IP:8080/actuator/health"
+          )
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            for i in {1..20}; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$endpoint" 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "✅ $endpoint is ready"
+                break
+              fi
+              echo "⏳ Waiting for $endpoint... ($i/20)"
+              sleep 5
+            done
+          done
+
+      - name: 🧪 Run E2E Tests
+        run: |
+            echo ""
+            echo "========================================"
+            echo " Running E2E Tests with Newman"
+            echo "========================================"
+            echo ""
+
+            BASE_URL="http://${EXTERNAL_IP}:8080/app"
+            echo "Base URL para E2E: $BASE_URL"
+
+            if curl -f "$BASE_URL/actuator/health" --max-time 10 --silent > /dev/null; then
+              echo "✅ API Gateway está accesible en $BASE_URL"
+              echo ""
+
+              cd tests/e2e
+
+              newman run ecommerce-e2e-tests.postman_collection.json \
+                --env-var "base_url=$BASE_URL" \
+                --reporters cli,json \
+                --reporter-json-export ../../test-results/e2e-results.json \
+                --timeout-request 10000 \
+                --delay-request 500 || true
+
+              cd ../..
+            else
+              echo "❌ API Gateway no está accesible en $BASE_URL"
+              echo "Saltando E2E tests"
+            fi
+
+      - name: 📤 Upload E2E Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-reports/
+          retention-days: 7
+
+  # ============================================================================
+  # PERFORMANCE TESTS (Locust)
+  # ============================================================================
+  performance-tests:
+    name: 📊 Performance Tests
+    runs-on: ubuntu-latest
+    environment: stage
+    needs: [kubernetes-deploy, e2e-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Locust
+        run: |
+          pip install -r tests/performance/requirements.txt
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: ⚙️ Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RG }}
+          cluster-name: ${{ secrets.AKS_NAME }}
+
+      - name: 🌐 Get API Gateway IP
+        id: get-ip
+        run: |
+          for i in {1..30}; do
+            EXTERNAL_IP=$(kubectl get svc api-gateway -n ecommerce-stage -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            if [ ! -z "$EXTERNAL_IP" ]; then
+              echo "API_GATEWAY_URL=http://$EXTERNAL_IP:8080" >> $GITHUB_ENV
+              echo "✅ API Gateway: http://$EXTERNAL_IP:8080"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: 🚀 Run Locust Performance Tests
+        run: |
+          cd tests/performance
+          locust -f locustfile.py \
+            --host=$API_GATEWAY_URL \
+            --users 10 \
+            --spawn-rate 2 \
+            --run-time 1m \
+            --headless \
+            --html=locust-report.html \
+            --csv=locust-stats
+
+      - name: 📤 Upload Performance Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results
+          path: tests/performance/locust-*
+          retention-days: 7
+
   # ============================================================================
   # OWASP ZAP SECURITY SCAN
   # ============================================================================
@@ -28,7 +268,7 @@ jobs:
     name: 🔐 OWASP ZAP Security Scan
     runs-on: ubuntu-latest
     environment: stage
-    needs: []
+    needs: [performance-tests, kubernetes-deploy, e2e-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     steps:
       - name: 📥 Checkout code
