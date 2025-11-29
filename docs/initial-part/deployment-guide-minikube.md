@@ -14,6 +14,64 @@
 - ✅ Maven
 - ✅ Git
 - ✅ Python 3.11+ (para Locust)
+- ✅ gcloud CLI configurado con acceso al proyecto GCP
+
+---
+
+## ☁️ Despliegue en GCP (Cloud Run con Terraform)
+
+> Usa esta sección cuando quieras desplegar los microservicios en Google Cloud Run mediante los módulos Terraform que viven en `infra/terraform/gcp`. El prerequisito es haber creado previamente el Artifact Registry `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services` (el módulo `artifact_registry` ya lo crea) y haber iniciado sesión con `gcloud auth login`.
+
+### 0.1 Autenticación y proyecto
+
+```powershell
+gcloud auth login
+gcloud config set project eco-microservices-dev
+gcloud auth configure-docker us-central1-docker.pkg.dev
+```
+
+### 0.2 Compilar y publicar imágenes `v0.1.0`
+
+Cada servicio debe generar un JAR, construir una imagen y publicarla en el registry antes de correr `terraform apply`. Ejecuta los siguientes pasos desde la raíz del repo, reemplazando `<service-dir>` y `<image-name>` con los valores de la tabla:
+
+| Directorio | Imagen |
+|------------|--------|
+| `api-gateway` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/api-gateway:v0.1.0` |
+| `cloud-config` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/cloud-config:v0.1.0` |
+| `favourite-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/favourite-service:v0.1.0` |
+| `user-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/user-service:v0.1.0` |
+| `order-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/order-service:v0.1.0` |
+| `product-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/product-service:v0.1.0` |
+| `payment-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/payment-service:v0.1.0` |
+| `shipping-service` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/shipping-service:v0.1.0` |
+| `service-discovery` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/service-discovery:v0.1.0` |
+| `proxy-client` | `us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services/proxy-client:v0.1.0` |
+
+```powershell
+Set-Location C:\Users\CTecn\Desktop\ecommerce-microservice-backend-app\<service-dir>
+mvn -DskipTests package
+docker build -t <image-name> .
+docker push <image-name>
+```
+
+> Sugerencia: repite los comandos anteriores por cada servicio. Si ya existen etiquetas diferentes en el registry, también puedes actualizar `terraform.tfvars` para apuntar a esas imágenes en lugar de `v0.1.0`.
+
+Verifica las imágenes publicadas con:
+
+```powershell
+gcloud artifacts docker images list us-central1-docker.pkg.dev/eco-microservices-dev/eco-dev-services
+```
+
+### 0.3 Ejecutar Terraform en `dev`
+
+```powershell
+Set-Location C:\Users\CTecn\Desktop\ecommerce-microservice-backend-app\infra\terraform\gcp\environments\dev
+terraform init
+terraform plan -var-file="terraform.tfvars"
+terraform apply -var-file="terraform.tfvars"
+```
+
+Si el `apply` falla con `Image ... not found`, regresa a la fase 0.2 y asegúrate de publicar la imagen correspondiente. Una vez creados los servicios en Cloud Run puedes revisar sus endpoints y permisos desde la consola de GCP.
 
 ---
 
@@ -599,8 +657,6 @@ curl http://localhost:8761
 - SHIPPING-SERVICE
 - FAVOURITE-SERVICE
 
-```
-
 ---
 
 ## ⚡ FASE 7: Pruebas de Rendimiento
@@ -740,6 +796,73 @@ kubectl logs -n ecommerce deployment/<service-name>
 kubectl get svc -n ecommerce
 kubectl describe svc -n ecommerce <service-name>
 ```
+
+---
+
+## ☁️ Despliegue en Google Cloud Run (Resumen y Troubleshooting)
+
+## 1. Requisitos previos
+- Cuenta de Google Cloud Platform (GCP) y proyecto creado.
+- Google Cloud SDK (`gcloud`), Docker y Maven instalados.
+- Acceso a Artifact Registry o Container Registry.
+- Permisos de Owner o Editor en el proyecto de GCP.
+
+## 2. Estructura y configuración
+- Cada microservicio debe tener:
+  - `application.yml` con:
+    ```yaml
+    server:
+      port: ${PORT:808X}
+    eureka:
+      client:
+        service-url:
+          defaultZone: https://<URL_PUBLICA_EUREKA>/eureka
+    ```
+  - Dockerfile con:
+    ```dockerfile
+    EXPOSE 808X
+    ENTRYPOINT ["java", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}", "-jar", "<servicio>.jar"]
+    ```
+- Eureka (service-discovery) debe tener:
+  - Dependencias `spring-cloud-starter-netflix-eureka-server` y `eureka-client` en el `pom.xml`.
+  - Anotación `@EnableEurekaServer` en la clase principal.
+  - Acceso público habilitado en Cloud Run (Permitir invocaciones no autenticadas).
+
+## 3. Build y push de imágenes
+Por cada microservicio:
+```sh
+cd <servicio>
+mvn clean package
+# Reemplaza <servicio> y <tag> según corresponda
+docker build -t gcr.io/<proyecto>/<servicio>:<tag> .
+docker push gcr.io/<proyecto>/<servicio>:<tag>
+```
+
+## 4. Despliegue con Terraform
+Desde la carpeta de infraestructura:
+```sh
+cd infra/terraform/gcp/environments/dev
+terraform apply -var-file="terraform.business.tfvars"
+```
+
+## 5. Troubleshooting y tips
+- Si los servicios no arrancan, revisa los logs de Cloud Run.
+- Si ves errores de Eureka, asegúrate de que la URL pública de Eureka sea accesible y el acceso no autenticado esté habilitado.
+- Si la UI de Eureka no aparece, agrega la dependencia `eureka-client` y accede a `/eureka`.
+- El acceso entre servicios en Cloud Run requiere que Eureka permita tráfico no autenticado.
+- Para producción, considera usar VPC Connector y restringir el acceso.
+
+## 6. Resumen de pasos realizados
+- Corrección de puertos en Dockerfile y application.yml.
+- Separación de despliegue en servicios base y de negocio.
+- Configuración de Eureka y subida de imágenes a Container Registry.
+- Habilitación de acceso público en Eureka.
+- Agregado de dependencia `eureka-client` para la UI.
+- Documentación de todo el proceso.
+
+---
+
+Para dudas o problemas, revisa los logs de Cloud Run y la documentación oficial de Google Cloud Run y Spring Cloud Netflix Eureka.
 
 ---
 

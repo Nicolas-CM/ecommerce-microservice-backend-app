@@ -1,0 +1,282 @@
+# Configuración global
+global:
+  environment: dev
+  # Registry configuration for production AKS deployment
+  registry: ghcr.io
+  imagePullPolicy: Always # Use Always for GHCR images in AKS
+  
+  # Image Pull Secrets for private GHCR registry
+  imagePullSecrets:
+    - name: ghcr-secret
+
+# Image tags per service - override in values-{env}.yaml
+imageTags:
+  cloud-config: latest
+  service-discovery: latest
+  api-gateway: latest
+  product-service: latest
+  order-service: latest
+  user-service: latest
+  payment-service: latest
+  shipping-service: latest
+  favourite-service: latest
+  proxy-client: latest
+
+# Configuración común para todos los microservicios
+common:
+  replicas: 1
+  resources:
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+
+# Configuración de Zipkin (infraestructura)
+zipkin:
+  enabled: true
+  image: openzipkin/zipkin
+  port: 9411
+
+# Definición de los microservicios
+# Image tags can be overridden using image-tags.yaml file
+microservices:
+  cloud-config:
+    name: cloud-config
+    isEureka: true
+    image: nicolas-cm/cloud-config
+    port: 9296
+    type: ClusterIP
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+
+  service-discovery:
+    name: service-discovery
+    isEureka: true
+    image: nicolas-cm/service-discovery
+    port: 8761
+    type: ClusterIP
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: SPRING_ZIPKIN_ENABLED
+        value: "false"
+      - name: SPRING_SLEUTH_ENABLED
+        value: "false"
+      - name: EUREKA_CLIENT_REGISTER_WITH_EUREKA
+        value: "false"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "false"
+
+  api-gateway:
+    name: api-gateway
+    image: nicolas-cm/api-gateway
+    port: 8080
+    type: LoadBalancer
+    nodePort: 30080
+    contextPath: ""
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "api-gateway"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  product-service:
+    name: product-service
+    image: nicolas-cm/product-service
+    port: 8500
+    type: ClusterIP
+    contextPath: "/product-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "product-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  order-service:
+    name: order-service
+    image: nicolas-cm/order-service
+    port: 8300
+    type: ClusterIP
+    contextPath: "/order-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "order-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  user-service:
+    name: user-service
+    image: nicolas-cm/user-service
+    port: 8700
+    type: ClusterIP
+    contextPath: "/user-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "user-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  payment-service:
+    name: payment-service
+    image: nicolas-cm/payment-service
+    port: 8400
+    type: ClusterIP
+    contextPath: "/payment-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "payment-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  shipping-service:
+    name: shipping-service
+    image: nicolas-cm/shipping-service
+    port: 8600
+    type: ClusterIP
+    contextPath: "/shipping-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "shipping-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  favourite-service:
+    name: favourite-service
+    image: nicolas-cm/favourite-service
+    port: 8800
+    type: ClusterIP
+    contextPath: "/favourite-service"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "favourite-service"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"
+
+  proxy-client:
+    name: proxy-client
+    image: nicolas-cm/proxy-client
+    port: 8900
+    type: ClusterIP
+    contextPath: "/app"
+    env:
+      - name: SPRING_PROFILES_ACTIVE
+        value: "dev"
+      - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        value: "http://service-discovery:8761/eureka/"
+      - name: SPRING_CONFIG_IMPORT
+        value: "optional:configserver:http://cloud-config:9296/"
+      - name: SPRING_CLOUD_CONFIG_URI
+        value: "http://cloud-config:9296"
+      - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+        value: "false"
+      - name: EUREKA_INSTANCE_HOSTNAME
+        value: "proxy-client"
+      - name: EUREKA_CLIENT_ENABLED
+        value: "true"
+      - name: EUREKA_CLIENT_FETCH_REGISTRY
+        value: "true"
+      - name: RIBBON_EUREKA_ENABLED
+        value: "true"

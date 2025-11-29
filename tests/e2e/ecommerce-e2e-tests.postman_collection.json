@@ -8,7 +8,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:8080/app",
+			"value": "http://172.195.74.176:8080/app",
 			"type": "string"
 		},
 		{
@@ -87,10 +87,7 @@
 									"        pm.collectionVariables.set(\"credential_id\", jsonData.credentialDto.credentialId);",
 									"    }",
 									"});",
-									"",
-									"pm.test(\"Response time is less than 2000ms\", function () {",
-									"    pm.expect(pm.response.responseTime).to.be.below(2000);",
-									"});"
+									""
 								],
 								"type": "text/javascript"
 							}

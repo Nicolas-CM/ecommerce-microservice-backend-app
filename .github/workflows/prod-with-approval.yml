@@ -1,0 +1,457 @@
+name: PRODUCTION - Deploy with Approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage_tag:
+        description: 'Stage tag to promote (e.g., stage-0.1.0-abc1234-20240115120000)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: read
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+  AZURE_PROD_RG: ${{ secrets.AZURE_PROD_RG }}
+  AZURE_PROD_AKS: ${{ secrets.AZURE_PROD_AKS }}
+
+jobs:
+  validate-stage-tag:
+    name: Validate Stage Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      valid: ${{ steps.check.outputs.valid }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Check if tag exists
+      id: check
+      run: |
+        if git rev-parse "${{ github.event.inputs.stage_tag }}" >/dev/null 2>&1; then
+          echo "valid=true" >> $GITHUB_OUTPUT
+          echo "✅ Tag ${{ github.event.inputs.stage_tag }} exists"
+        else
+          echo "valid=false" >> $GITHUB_OUTPUT
+          echo "❌ Tag ${{ github.event.inputs.stage_tag }} does not exist"
+          exit 1
+        fi
+    
+    - name: Extract version
+      id: extract
+      run: |
+        TAG="${{ github.event.inputs.stage_tag }}"
+        # Extract version from stage-0.1.0-abc1234-20240115120000 format
+        VERSION=$(echo $TAG | sed -E 's/stage-([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Production version will be: $VERSION"
+    
+    - name: Check if production tag exists
+      run: |
+        VERSION="${{ steps.extract.outputs.version }}"
+        if git rev-parse "prod-$VERSION" >/dev/null 2>&1; then
+          echo "⚠️  Warning: Production tag prod-$VERSION already exists"
+          echo "This will update the existing production deployment"
+        else
+          echo "✅ New production version: prod-$VERSION"
+        fi
+
+  wait-for-approval:
+    name: Await Production Approval
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag]
+    environment: 
+      name: production
+      url: https://your-production-url.com
+    
+    steps:
+    - name: Manual Approval Gate
+      run: |
+        echo "=========================================="
+        echo "   PRODUCTION DEPLOYMENT APPROVAL"
+        echo "=========================================="
+        echo ""
+        echo "Stage Tag: ${{ github.event.inputs.stage_tag }}"
+        echo "Production Version: ${{ needs.validate-stage-tag.outputs.version }}"
+        echo ""
+        echo "Awaiting approval from authorized reviewers..."
+        echo ""
+        echo "⚠️  This will deploy to PRODUCTION environment"
+        echo "Please ensure all validations passed in Stage"
+
+  retag-images:
+    name: Retag Images for Production
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, wait-for-approval]
+    
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - cloud-config
+          - service-discovery
+          - proxy-client
+          - user-service
+          - product-service
+          - order-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+    
+    steps:
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Pull Stage Image
+      run: |
+        STAGE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.event.inputs.stage_tag }}"
+        echo "Pulling stage image: $STAGE_IMAGE"
+        docker pull $STAGE_IMAGE
+    
+    - name: Retag for Production
+      run: |
+        STAGE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.event.inputs.stage_tag }}"
+        PROD_TAG="prod-${{ needs.validate-stage-tag.outputs.version }}"
+        PROD_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:$PROD_TAG"
+        PROD_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:prod-latest"
+        
+        echo "Tagging $STAGE_IMAGE as $PROD_IMAGE"
+        docker tag $STAGE_IMAGE $PROD_IMAGE
+        docker tag $STAGE_IMAGE $PROD_LATEST
+        
+        echo "Pushing production tags..."
+        docker push $PROD_IMAGE
+        docker push $PROD_LATEST
+        
+        echo "✅ Successfully retagged ${{ matrix.service }} for production"
+
+  deploy-to-production:
+    name: Deploy to Production AKS
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, wait-for-approval, retag-images]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Get AKS Credentials
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.AZURE_PROD_RG }} \
+          --name ${{ env.AZURE_PROD_AKS }} \
+          --overwrite-existing
+    
+    - name: Update Deployment Images
+      run: |
+        PROD_TAG="prod-${{ needs.validate-stage-tag.outputs.version }}"
+        
+        echo "=========================================="
+        echo "   UPDATING PRODUCTION DEPLOYMENTS"
+        echo "=========================================="
+        echo ""
+        
+        SERVICES=(
+          "api-gateway"
+          "cloud-config"
+          "service-discovery"
+          "proxy-client"
+          "user-service"
+          "product-service"
+          "order-service"
+          "payment-service"
+          "shipping-service"
+          "favourite-service"
+        )
+        
+        for SERVICE in "${SERVICES[@]}"; do
+          DEPLOYMENT_NAME="${SERVICE}"
+          NEW_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:${PROD_TAG}"
+          
+          echo "Updating ${SERVICE}..."
+          
+          if kubectl get deployment ${DEPLOYMENT_NAME} -n ecommerce-prod 2>/dev/null; then
+            kubectl set image deployment/${DEPLOYMENT_NAME} \
+              ${SERVICE}=${NEW_IMAGE} \
+              -n ecommerce-prod
+            
+            kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ecommerce-prod --timeout=5m
+            echo "✅ ${SERVICE} updated successfully"
+          else
+            echo "⚠️  Deployment ${DEPLOYMENT_NAME} not found, skipping..."
+          fi
+          echo ""
+        done
+        
+        echo "=========================================="
+        echo "   DEPLOYMENT COMPLETE"
+        echo "=========================================="
+    
+    - name: Verify Deployments
+      run: |
+        echo "Checking deployment status..."
+        kubectl get deployments -n ecommerce-prod
+        echo ""
+        echo "Checking pod status..."
+        kubectl get pods -n ecommerce-prod
+        echo ""
+        echo "Checking services..."
+        kubectl get services -n ecommerce-prod
+
+  smoke-tests:
+    name: Production Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, deploy-to-production]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Get AKS Credentials
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.AZURE_PROD_RG }} \
+          --name ${{ env.AZURE_PROD_AKS }} \
+          --overwrite-existing
+    
+    - name: Get API Gateway External IP
+      id: get-ip
+      run: |
+        echo "Waiting for LoadBalancer IP..."
+        for i in {1..30}; do
+          EXTERNAL_IP=$(kubectl get svc api-gateway-service -n ecommerce-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ ! -z "$EXTERNAL_IP" ]; then
+            echo "api_gateway_ip=$EXTERNAL_IP" >> $GITHUB_OUTPUT
+            echo "✅ API Gateway IP: $EXTERNAL_IP"
+            break
+          fi
+          echo "Waiting for IP... attempt $i/30"
+          sleep 10
+        done
+        
+        if [ -z "$EXTERNAL_IP" ]; then
+          echo "❌ Failed to get external IP"
+          exit 1
+        fi
+    
+    - name: Health Check - API Gateway
+      run: |
+        API_URL="http://${{ steps.get-ip.outputs.api_gateway_ip }}/actuator/health"
+        echo "Testing API Gateway: $API_URL"
+        
+        for i in {1..10}; do
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $API_URL)
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ API Gateway is healthy"
+            break
+          fi
+          echo "Attempt $i/10: HTTP $RESPONSE"
+          sleep 10
+        done
+        
+        if [ "$RESPONSE" -ne 200 ]; then
+          echo "❌ API Gateway health check failed"
+          exit 1
+        fi
+    
+    - name: Smoke Test - User Service
+      run: |
+        API_URL="http://${{ steps.get-ip.outputs.api_gateway_ip }}/app/api/users"
+        echo "Testing User Service endpoint: $API_URL"
+        
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $API_URL)
+        if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 401 ]; then
+          echo "✅ User Service is responding (HTTP $RESPONSE)"
+        else
+          echo "❌ User Service check failed (HTTP $RESPONSE)"
+          exit 1
+        fi
+    
+    - name: Smoke Test - Product Service
+      run: |
+        API_URL="http://${{ steps.get-ip.outputs.api_gateway_ip }}/app/api/products"
+        echo "Testing Product Service endpoint: $API_URL"
+        
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $API_URL)
+        if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 401 ]; then
+          echo "✅ Product Service is responding (HTTP $RESPONSE)"
+        else
+          echo "❌ Product Service check failed (HTTP $RESPONSE)"
+          exit 1
+        fi
+    
+    - name: Smoke Tests Summary
+      run: |
+        echo "=========================================="
+        echo "   SMOKE TESTS PASSED"
+        echo "=========================================="
+        echo ""
+        echo "✅ All critical services are responding"
+        echo "✅ Production deployment verified"
+
+  create-production-release:
+    name: Create Production Release
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, smoke-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Create Git Tag
+      run: |
+        PROD_TAG="prod-${{ needs.validate-stage-tag.outputs.version }}"
+        
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Check if tag exists
+        if git rev-parse "$PROD_TAG" >/dev/null 2>&1; then
+          echo "⚠️  Tag $PROD_TAG already exists, deleting..."
+          git tag -d $PROD_TAG
+          git push origin :refs/tags/$PROD_TAG || true
+        fi
+        
+        git tag -a $PROD_TAG -m "Production Release ${{ needs.validate-stage-tag.outputs.version }}"
+        git push origin $PROD_TAG
+        
+        echo "✅ Created tag: $PROD_TAG"
+    
+    - name: Generate Release Notes
+      id: release_notes
+      run: |
+        PROD_TAG="prod-${{ needs.validate-stage-tag.outputs.version }}"
+        STAGE_TAG="${{ github.event.inputs.stage_tag }}"
+        
+        cat << EOF > release_notes.md
+        # Production Release ${{ needs.validate-stage-tag.outputs.version }}
+        
+        ## 📦 Promoted from Stage
+        - **Stage Tag:** \`${STAGE_TAG}\`
+        - **Production Tag:** \`${PROD_TAG}\`
+        - **Deployment Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        
+        ## 🚀 Deployed Services
+        - api-gateway
+        - cloud-config
+        - service-discovery
+        - proxy-client
+        - user-service
+        - product-service
+        - order-service
+        - payment-service
+        - shipping-service
+        - favourite-service
+        
+        ## ✅ Validation Summary
+        - ✅ Stage tag validated
+        - ✅ Manual approval received
+        - ✅ Images retagged for production
+        - ✅ Deployed to AKS Production
+        - ✅ Smoke tests passed
+        
+        ## 📊 Container Images
+        All services available at:
+        \`ghcr.io/${{ github.repository_owner }}/<service>:${PROD_TAG}\`
+        
+        ## 🔗 Related Tags
+        - Stage: [\`${STAGE_TAG}\`](https://github.com/${{ github.repository }}/releases/tag/${STAGE_TAG})
+        - Production: [\`${PROD_TAG}\`](https://github.com/${{ github.repository }}/releases/tag/${PROD_TAG})
+        EOF
+        
+        echo "Release notes generated"
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: prod-${{ needs.validate-stage-tag.outputs.version }}
+        name: Production v${{ needs.validate-stage-tag.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, create-production-release]
+    if: success()
+    
+    steps:
+    - name: Send Success Email
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "✅ Production Deployment Successful - v${{ needs.validate-stage-tag.outputs.version }}"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: GitHub Actions
+        body: |
+          Production Deployment Completed Successfully!
+          
+          Version: ${{ needs.validate-stage-tag.outputs.version }}
+          Stage Tag: ${{ github.event.inputs.stage_tag }}
+          Production Tag: prod-${{ needs.validate-stage-tag.outputs.version }}
+          
+          Repository: ${{ github.repository }}
+          Workflow: ${{ github.workflow }}
+          Triggered by: ${{ github.actor }}
+          
+          All services deployed and smoke tests passed.
+          
+          View release: https://github.com/${{ github.repository }}/releases/tag/prod-${{ needs.validate-stage-tag.outputs.version }}
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [validate-stage-tag, wait-for-approval, retag-images, deploy-to-production, smoke-tests]
+    if: failure()
+    
+    steps:
+    - name: Send Failure Email
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "❌ Production Deployment Failed - ${{ github.event.inputs.stage_tag }}"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: GitHub Actions
+        body: |
+          Production Deployment Failed!
+          
+          Stage Tag: ${{ github.event.inputs.stage_tag }}
+          Repository: ${{ github.repository }}
+          Workflow: ${{ github.workflow }}
+          Triggered by: ${{ github.actor }}
+          
+          Please check the workflow logs for details.
+          
+          View logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

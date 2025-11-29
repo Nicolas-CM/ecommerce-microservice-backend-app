@@ -1,6 +1,7 @@
 
+
 server:
-  port: 9296
+  port: ${PORT:8888}
 
 spring:
   zipkin:
