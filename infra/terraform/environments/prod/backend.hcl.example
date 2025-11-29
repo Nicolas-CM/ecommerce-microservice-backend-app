@@ -1,2 +1,2 @@
 bucket = "tfstate-eco-microservices"
-prefix = "prod"
+prefix = "dev"
