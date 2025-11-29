@@ -180,16 +180,42 @@ jobs:
             BASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           fi
           
-          # Generate full version tag
-          COMMIT_SHA=$(git rev-parse --short HEAD)
+          # Generate short commit sha (7 chars)
+          if [ -n "${GITHUB_SHA:-}" ]; then
+            COMMIT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          else
+            COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          fi
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          FULL_VERSION="stage-${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
-          IMAGE_TAG="${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
+          # Build tag format as requested: 0.1.0-stage.372d17b (no timestamp)
+          IMAGE_TAG="${BASE_VERSION}-stage.${COMMIT_SHA}"
+          FULL_VERSION="$IMAGE_TAG"
+
+          # Validate BASE_VERSION format (x.y.z), fallback to 0.1.0 if invalid
+          if ! echo "${BASE_VERSION}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null 2>&1; then
+            echo "⚠️  BASE_VERSION format invalid: ${BASE_VERSION}, defaulting to 0.1.0"
+            BASE_VERSION="0.1.0"
+            FULL_VERSION="stage-${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
+            IMAGE_TAG="${BASE_VERSION}-${COMMIT_SHA}-${TIMESTAMP}"
+          fi
+
+          # Sanitize IMAGE_TAG for Docker: lowercase, remove leading non-alphanum, replace invalid chars with '-'
+          IMAGE_TAG_SANITIZED=$(echo "$IMAGE_TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[^a-z0-9]+//g' | sed -E 's/[^a-z0-9._-]+/-/g' | sed -E 's/[-]{2,}/-/g' | sed -E 's/^[._-]+//g' | sed -E 's/[._-]+$//g')
+          if [ -z "$IMAGE_TAG_SANITIZED" ]; then
+            echo "⚠️  Generated image tag '$IMAGE_TAG' could not be sanitized. Defaulting to 0.1.0-unknown"
+            IMAGE_TAG_SANITIZED="0.1.0-unknown-${TIMESTAMP}"
+          fi
+          IMAGE_TAG="$IMAGE_TAG_SANITIZED"
+
+          # Sanitize FULL_VERSION for use as git tag
+          FULL_VERSION_SANITIZED=$(echo "$FULL_VERSION" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g' | sed -E 's/[-]{2,}/-/g' | sed -E 's/^[._-]+//g' | sed -E 's/[._-]+$//g')
           
-          echo "Generated version: $FULL_VERSION"
-          echo "Image tag: $IMAGE_TAG"
+          echo "Generated version: $FULL_VERSION => sanitized: $FULL_VERSION_SANITIZED"
+          echo "Image tag: $IMAGE_TAG (sanitized: $IMAGE_TAG_SANITIZED)"
           
-          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          # Export both values
+          echo "image_tag=$IMAGE_TAG_SANITIZED" >> $GITHUB_OUTPUT
+          echo "version=$FULL_VERSION_SANITIZED" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # ============================================================================
@@ -230,6 +256,17 @@ jobs:
         run: |
           SERVICE="${{ matrix.service }}"
           IMAGE_TAG="${{ needs.calculate-semver.outputs.image_tag }}"
+          # Validate image tag for Docker (must not start with invalid characters)
+          if [[ -z "$IMAGE_TAG" ]]; then
+            echo "❌ IMAGE_TAG is empty - aborting"
+            exit 1
+          fi
+          if [[ ! "$IMAGE_TAG" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "❌ Derived IMAGE_TAG '$IMAGE_TAG' is invalid for Docker tag format."
+            echo "   Valid characters: lowercase letters, digits, ., _, - and must start with alphanumeric."
+            echo "   Please check generate-semver step or the repository tags."
+            exit 1
+          fi
           FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:${IMAGE_TAG}"
           LATEST_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:stage-latest"
           
