@@ -71,10 +71,7 @@ jobs:
         with:
           approvers: ${{ secrets.PROD_APPROVERS }}
           minimum-approvals: 1
-          timeout-minutes: 1440
-          instructions: |
-            Approve this check to continue deploying to production.
-            Reject to cancel the workflow.
+          secret: ${{ secrets.GITHUB_TOKEN }}
 
   kubernetes-deploy:
     name: "🚀 Deploy to AKS Prod (Helm)"
