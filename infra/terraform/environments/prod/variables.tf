@@ -93,3 +93,35 @@ variable "aks_dns_service_ip" {
   type        = string
   default     = "10.0.0.10"
 }
+
+# Security
+variable "jwt_secret_value" {
+  description = "Value of the JWT secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
+}
+
+# Email for Let's Encrypt TLS certificates
+variable "email" {
+  description = "Email address for Let's Encrypt notifications"
+  type        = string
+}
+
+# Static IP for Load Balancer
+variable "load_balancer_ip" {
+  description = "Static public IP for the load balancer (empty for dynamic)"
+  type        = string
+  default     = ""
+}
+
+variable "static_ip_resource_group" {
+  description = "Resource group containing the static IP"
+  type        = string
+  default     = "ecommerce-static-resources"
+}

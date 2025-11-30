@@ -1,0 +1,194 @@
+name: Infrastructure Deployment - Production (Terraform)
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_infra:
+        description: "Run infrastructure deployment? (true/false)"
+        required: true
+        default: "false"
+
+jobs:
+  infrastructure-deploy:
+    name: Deploy Infrastructure (Production - Terraform)
+    environment:
+      name: prod-infra
+    runs-on: ubuntu-latest
+    # Only run when explicitly requested (workflow_dispatch run_infra=true)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_infra == 'true'
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    
+    outputs:
+      key_vault_name: ${{ steps.terraform-outputs.outputs.key_vault_name }}
+      tenant_id: ${{ steps.terraform-outputs.outputs.tenant_id }}
+      key_vault_identity_client_id: ${{ steps.terraform-outputs.outputs.key_vault_identity_client_id }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+          terraform_wrapper: false
+
+      - name: Pre-deploy safety checks
+        run: |
+          echo "⚠️  Infrastructure deployment - running safety checks (production)"
+          echo "This job requires manual approval via workflow_dispatch with run_infra=true"
+          echo ""
+          echo "📋 Configuration:"
+          echo "  - Subscription ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          echo "  - Resource Group: ${{ secrets.AKS_RG }}"
+          echo "  - AKS Cluster: ${{ secrets.AKS_NAME }}"
+          echo "  - Domain: ${{ secrets.PROD_DOMAIN }}"
+          echo ""
+
+      - name: Terraform Init
+        working-directory: ./infra/terraform/environments/prod
+        run: |
+          # Update backend.hcl with environment secrets
+          cat > backend.hcl << EOF
+          resource_group_name  = "${{ secrets.TF_BACKEND_RG }}"
+          storage_account_name = "${{ secrets.TF_BACKEND_SA }}"
+          container_name       = "${{ secrets.TF_BACKEND_CONTAINER }}"
+          key                  = "prod.tfstate"
+          EOF
+          
+          terraform init -backend-config=backend.hcl
+
+      - name: Terraform Plan
+        working-directory: ./infra/terraform/environments/prod
+        run: |
+          terraform plan \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="jwt_secret_value=${{ secrets.JWT_SECRET }}" \
+            -var="grafana_admin_password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            -var="email=${{ secrets.LETSENCRYPT_EMAIL }}" \
+            -var="load_balancer_ip=${{ secrets.PROD_STATIC_IP }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./infra/terraform/environments/prod
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Terraform Outputs
+        id: terraform-outputs
+        working-directory: ./infra/terraform/environments/prod
+        run: |
+          echo "key_vault_name=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
+          echo "tenant_id=$(terraform output -raw tenant_id)" >> $GITHUB_OUTPUT
+          echo "key_vault_identity_client_id=$(terraform output -raw key_vault_secrets_provider_identity_client_id)" >> $GITHUB_OUTPUT
+
+      - name: Get AKS Credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AKS_RG }} \
+            --name ${{ secrets.AKS_NAME }} \
+            --overwrite-existing
+
+      - name: Verify Cluster Connection
+        run: |
+          echo "🔍 Verifying cluster connection..."
+          kubectl cluster-info
+          echo ""
+          echo "📊 Node status:"
+          kubectl get nodes -o wide
+          echo ""
+          echo "📦 Namespaces:"
+          kubectl get namespaces
+
+      - name: Verify Monitoring Stack
+        run: |
+          echo "🔍 Checking monitoring stack..."
+          echo ""
+          echo "=== Monitoring Namespace ==="
+          kubectl get all -n monitoring || echo "Monitoring namespace not ready yet"
+          echo ""
+          echo "=== Cert-Manager ==="
+          kubectl get pods -n cert-manager || echo "Cert-manager not ready yet"
+          echo ""
+          echo "=== Ingress-NGINX ==="
+          kubectl get pods -n ingress-nginx || echo "Ingress-nginx not ready yet"
+
+      - name: Summary
+        run: |
+          echo "✅ Infrastructure deployment completed successfully"
+          echo ""
+          echo "📋 Outputs:"
+          echo "  - Key Vault: ${{ steps.terraform-outputs.outputs.key_vault_name }}"
+          echo "  - Tenant ID: ${{ steps.terraform-outputs.outputs.tenant_id }}"
+          echo "  - Identity Client ID: ${{ steps.terraform-outputs.outputs.key_vault_identity_client_id }}"
+          echo ""
+          echo "🚀 Next steps:"
+          echo "  1. Verify monitoring stack is running"
+          echo "  2. Run ci-cd-prod.yml to deploy applications"
+          echo "  3. Access monitoring via port-forward scripts"
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    if: success()
+    needs: [infrastructure-deploy]
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ Infrastructure Deployment Success (Production): ${{ github.repository }}"
+          body: |
+            Infrastructure deployment completed successfully for Production environment.
+            
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Actor: ${{ github.actor }}
+            
+            Check the logs here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          secure: true
+
+  notify-failure-or-cancel:
+    name: Notify Failure or Cancellation
+    runs-on: ubuntu-latest
+    if: failure() || cancelled()
+    needs: [infrastructure-deploy]
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ Infrastructure Deployment Failed (Production): ${{ github.repository }}"
+          body: |
+            Infrastructure deployment failed or was cancelled for Production environment.
+            
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Actor: ${{ github.actor }}
+            
+            Check the logs here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          secure: true

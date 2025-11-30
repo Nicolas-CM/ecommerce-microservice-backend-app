@@ -10,7 +10,7 @@ log_analytics_retention_days = 60
 # AKS Configuration
 kubernetes_version      = "1.31.2"
 aks_node_count          = 2
-aks_vm_size             = "Standard_B4s_v2"
+aks_vm_size             = "Standard_B4ps_v2"
 aks_enable_auto_scaling = true
 aks_min_count           = 1
 aks_max_count           = 5
@@ -22,3 +22,7 @@ tags = {
   Project = "ecommerce-microservices"
   Owner   = "platform-team"
 }
+
+email = "nicolascuellar.molina@gmail.com"
+grafana_admin_password = "admin"
+jwt_secret_value = "TuJWTSecretSeguro123!"

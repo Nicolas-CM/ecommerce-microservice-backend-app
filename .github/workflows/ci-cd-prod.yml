@@ -1,0 +1,247 @@
+name: CI-CD Prod - Full Validation & Deploy
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  security-events: write
+  issues: write
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  request-approval:
+    name: "📧 Request Production Approval"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'))
+    steps:
+      - name: Get image tags for approval email
+        id: imgtags
+        run: |
+          echo "IMAGE_TAGS=" >> $GITHUB_ENV
+          if [ -f ./k8s/helm/image-tags-prod.yaml ]; then
+            echo "Microservice image tags for production:" >> image-tags.txt
+            cat ./k8s/helm/image-tags-prod.yaml >> image-tags.txt
+            echo "IMAGE_TAGS<<EOF" >> $GITHUB_ENV
+            cat image-tags.txt >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
+
+      - name: Send approval email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "Production deploy approval needed - ${{ github.repository }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions
+          body: |
+            Production deployment is awaiting approval.
+
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit     : ${{ github.sha }}
+            Workflow   : ${{ github.workflow }}
+            Run        : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Microservice image tags for production:
+            ${{ env.IMAGE_TAGS }}
+
+            Please review the changes and approve or reject the deployment.
+
+  manual-approval:
+    name: "✅ Await Manual Approval"
+    runs-on: ubuntu-latest
+    needs: request-approval
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'))
+    steps:
+      - name: Wait for approval
+        uses: trstringer/manual-approval@v1
+        with:
+          approvers: ${{ secrets.PROD_APPROVERS }}
+          minimum-approvals: 1
+          timeout-minutes: 1440
+          instructions: |
+            Approve this check to continue deploying to production.
+            Reject to cancel the workflow.
+
+  kubernetes-deploy:
+    name: "🚀 Deploy to AKS Prod (Helm)"
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    needs: manual-approval
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && (github.event_name != 'push' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: ⚙️ Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RG }}
+          cluster-name: ${{ secrets.AKS_NAME }}
+
+      - name: 🛡 Ensure namespace and GHCR secret
+        run: |
+          kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl delete secret ghcr-secret -n prod --ignore-not-found
+
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=${{ env.REGISTRY }} \
+            --docker-username=${{ secrets.GHCR_USERNAME }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --namespace=prod
+
+
+      - name: 🚀 Helm Deploy
+        run: |
+          echo "Deploying ecommerce app to production..."
+
+          helm upgrade --install ecommerce-app ./k8s/helm/ecommerce-chart \
+            --namespace prod \
+            --values ./k8s/helm/ecommerce-chart/values.yaml \
+            --values ./k8s/helm/values-prod.yaml \
+            --values ./k8s/helm/image-tags-prod.yaml \
+            --set global.environment=prod
+
+      - name: 🔍 Post-deploy status
+        run: |
+          kubectl get pods -n prod
+          kubectl get svc -n prod
+
+  generate-release-notes-prod:
+    name: "📝 Generate Production Release Notes"
+    runs-on: ubuntu-latest
+    needs:
+      [kubernetes-deploy]
+    if: success()
+    outputs:
+      release_version: ${{ steps.output_info.outputs.version }}
+      changelog: ${{ steps.output_info.outputs.changelog }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔎 Get changelog from latest stage release
+        id: output_info
+        run: |
+          OWNER=${{ github.repository_owner }}
+          REPO=$(basename $GITHUB_REPOSITORY)
+
+          resp=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$OWNER/$REPO/releases?per_page=100")
+          tag=$(echo "$resp" | jq -r 'sort_by(.created_at) | reverse[] | select(.tag_name | startswith("stage-")) | .tag_name' | head -n1)
+
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "❌ No stage release found"
+            exit 1
+          fi
+
+          changelog=$(echo "$resp" | jq -r "map(select(.tag_name == \"$tag\"))[0].body")
+          version=${tag#stage-}
+
+          echo "Found stage release $tag -> version $version"
+
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "changelog=$changelog" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Create GitHub Release (Production)
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: prod-${{ steps.output_info.outputs.version }}
+          release_name: Production Release ${{ steps.output_info.outputs.version }}
+          body: ${{ steps.output_info.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+      - name: 📝 Prepare changelog file
+        env:
+          CHANGELOG_CONTENT: ${{ steps.output_info.outputs.changelog }}
+          VERSION: ${{ steps.output_info.outputs.version }}
+        run: |
+          printf "%s\n" "$CHANGELOG_CONTENT" > "CHANGELOG-PROD-${VERSION}.md"
+
+      - name: 📤 Upload production changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-release-notes
+          path: CHANGELOG-PROD-${{ steps.output_info.outputs.version }}.md
+          retention-days: 30
+
+  notify-success:
+    name: "✅ Notify Success"
+    runs-on: ubuntu-latest
+    needs:
+      [generate-release-notes-prod, kubernetes-deploy]
+    if: success()
+    steps:
+      - name: Send success email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ Production deployment succeeded - ${{ github.repository }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions
+          body: |
+            Production deployment completed successfully.
+
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit     : ${{ github.sha }}
+            Release    : prod-${{ needs.generate-release-notes-prod.outputs.release_version }}
+            Workflow   : ${{ github.workflow }}
+            Run        : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  notify-failure:
+    name: "❌ Notify Failure"
+    runs-on: ubuntu-latest
+    needs:
+      [generate-release-notes-prod, kubernetes-deploy]
+    if: failure()
+    steps:
+      - name: Send failure email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ Production deployment failed - ${{ github.repository }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions
+          body: |
+            Production deployment failed or was cancelled.
+
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit     : ${{ github.sha }}
+            Workflow   : ${{ github.workflow }}
+            Run        : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Please review the logs for details.

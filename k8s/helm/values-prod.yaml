@@ -1,0 +1,289 @@
+global:
+  environment: prod
+  domain: "cuellarapp.online"  # Dominio real
+
+# Configuración de Ingress con TLS
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  host: "cuellarapp.online"  # Dominio real
+  tls:
+    enabled: true
+    secretName: ecommerce-tls-prod
+
+# Configuración de recursos para producción
+resources:
+  default:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  gateway:
+    requests:
+      cpu: 300m
+      memory: 768Mi
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+
+  discovery:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# API Gateway
+apiGateway:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/api-gateway
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 300m
+      memory: 768Mi
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Service Discovery (Eureka)
+serviceDiscovery:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nicolas-cm/service-discovery
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8761
+
+# Cloud Config
+cloudConfig:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nicolas-cm/cloud-config
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 9296
+
+# User Service
+userService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/user-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 9898
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Product Service
+productService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/product-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 9090
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Order Service
+orderService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/order-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 9191
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Payment Service
+paymentService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/payment-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 9192
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Shipping Service
+shippingService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/shipping-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 9193
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Favourite Service
+favouriteService:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/nicolas-cm/favourite-service
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 9393
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+
+# Proxy Client
+proxyClient:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nicolas-cm/proxy-client
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8181
+
+# Zipkin
+zipkin:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: openzipkin/zipkin
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 9411
+
+# Key Vault CSI Driver
+keyVault:
+  enabled: true
+  # Estos valores se inyectan desde Terraform
+  name: ""
+  tenantId: ""
+  userAssignedIdentityID: ""
+
+# Monitoring - ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    release: kube-prometheus-stack
+
+# Logging - Configuración para Logstash
+logging:
+  enabled: true
+  logstash:
+    host: "logstash-logstash.monitoring.svc.cluster.local"
+    port: 5000
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

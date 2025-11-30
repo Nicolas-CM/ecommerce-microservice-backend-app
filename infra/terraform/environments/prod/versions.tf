@@ -6,6 +6,22 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.80"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.24"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.10"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "azurerm" {
@@ -19,13 +35,21 @@ provider "azurerm" {
     resource_group {
       prevent_deletion_if_contains_resources = false
     }
-
     key_vault {
       purge_soft_delete_on_destroy    = true
       recover_soft_deleted_key_vaults = true
     }
   }
-
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
 }
+
+provider "helm" {
+  kubernetes {
+    host                   = module.aks.host
+    client_certificate     = base64decode(module.aks.client_certificate)
+    client_key             = base64decode(module.aks.client_key)
+    cluster_ca_certificate = base64decode(module.aks.cluster_ca_certificate)
+  }
+}
+

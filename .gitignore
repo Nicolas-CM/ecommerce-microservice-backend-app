@@ -45,3 +45,21 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Terraform ###
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfvars
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.lock.hcl
+
+### Setup Scripts ###
+setup-info.txt
+monitoring-pids*.txt
+/tmp/monitoring-pids*.txt
+
+### Kubernetes ###
+kubeconfig
+*.kubeconfig

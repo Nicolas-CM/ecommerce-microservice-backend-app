@@ -1,3 +1,5 @@
+// ...provider block moved to provider_k8s.tf...
+
 locals {
   name_prefix = format("%s-%s", var.global_prefix, var.environment_name)
   tags = merge(
@@ -71,3 +73,101 @@ resource "azurerm_kubernetes_cluster_node_pool" "pool2" {
   mode                  = "User"
   tags                  = local.tags
 }
+
+# ============================================================================
+# CONFIGURACIÓN ADICIONAL
+# ============================================================================
+
+data "azurerm_client_config" "current" {}
+
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
+# Tiempo de espera para propagación de RBAC
+resource "time_sleep" "wait_for_rbac" {
+  create_duration = "30s"
+  depends_on      = [module.aks]
+}
+
+# ============================================================================
+# KEY VAULT (para secretos)
+# ============================================================================
+
+resource "azurerm_key_vault" "main" {
+  name                       = "ecom-kv-prd-${random_string.suffix.result}"
+  location                   = var.location
+  resource_group_name        = module.resource_group.name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  sku_name                   = "standard"
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = false
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Purge", "Recover"
+    ]
+  }
+
+
+  tags = local.tags
+
+  depends_on = [module.aks]
+}
+
+resource "azurerm_key_vault_secret" "jwt_secret" {
+  name         = "jwt-secret"
+  value        = var.jwt_secret_value
+  key_vault_id = azurerm_key_vault.main.id
+
+  depends_on = [azurerm_key_vault.main]
+}
+
+# ============================================================================
+# CERT-MANAGER (para certificados TLS)
+# ============================================================================
+
+module "cert_manager" {
+  source = "../../modules/cert-manager"
+  email  = var.email
+
+  depends_on = [module.aks, time_sleep.wait_for_rbac]
+}
+
+# ============================================================================
+# INGRESS-NGINX (con Load Balancer y TLS)
+# ============================================================================
+
+module "ingress_nginx" {
+  source = "../../modules/ingress-nginx"
+
+  load_balancer_ip         = var.load_balancer_ip
+  static_ip_resource_group = var.static_ip_resource_group
+
+  depends_on = [
+    module.aks,
+    module.cert_manager,
+    time_sleep.wait_for_rbac
+  ]
+}
+
+# ============================================================================
+# MONITORING STACK (Prometheus + Grafana - como flamini)
+# ============================================================================
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  namespace               = "monitoring"
+  prometheus_retention    = "30d"
+  prometheus_storage_size = "20Gi"
+  grafana_admin_password  = var.grafana_admin_password
+
+  depends_on = [module.aks, time_sleep.wait_for_rbac]
+}
+
