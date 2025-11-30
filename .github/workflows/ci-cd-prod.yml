@@ -25,13 +25,12 @@ jobs:
       - name: Get image tags for approval email
         id: imgtags
         run: |
-          echo "IMAGE_TAGS=" >> $GITHUB_ENV
           if [ -f ./k8s/helm/image-tags-prod.yaml ]; then
-            echo "Microservice image tags for production:" >> image-tags.txt
-            cat ./k8s/helm/image-tags-prod.yaml >> image-tags.txt
-            echo "IMAGE_TAGS<<EOF" >> $GITHUB_ENV
-            cat image-tags.txt >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+            echo "image_tags<<EOF" >> $GITHUB_OUTPUT
+            cat ./k8s/helm/image-tags-prod.yaml >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "image_tags=No image tags file found" >> $GITHUB_OUTPUT
           fi
 
       - name: Send approval email
@@ -54,7 +53,7 @@ jobs:
             Run        : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Microservice image tags for production:
-            ${{ env.IMAGE_TAGS }}
+            ${{ steps.imgtags.outputs.image_tags }}
 
             Please review the changes and approve or reject the deployment.
 
