@@ -19,7 +19,7 @@ spec:
       containers:
         - name: zipkin
           image: {{ .Values.zipkin.image }}
-          imagePullPolicy: {{ .Values.common.imagePullPolicy }}
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: {{ .Values.zipkin.port }}
           resources:

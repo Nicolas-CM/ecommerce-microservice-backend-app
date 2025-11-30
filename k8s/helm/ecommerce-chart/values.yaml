@@ -36,7 +36,7 @@ common:
 # Configuración de Zipkin (infraestructura)
 zipkin:
   enabled: true
-  image: openzipkin/zipkin
+  image: openzipkin/zipkin:latest
   port: 9411
 
 # Definición de los microservicios
