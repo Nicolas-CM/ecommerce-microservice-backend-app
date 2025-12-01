@@ -29,9 +29,10 @@ jobs:
         id: imgtags
         run: |
           if [ -f ./k8s/helm/image-tags-prod.yaml ]; then
-            echo "image_tags<<EOF" >> $GITHUB_OUTPUT
+            delimiter="$(openssl rand -hex 8)"
+            echo "image_tags<<${delimiter}" >> $GITHUB_OUTPUT
             cat ./k8s/helm/image-tags-prod.yaml >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "${delimiter}" >> $GITHUB_OUTPUT
           else
             echo "image_tags=No image tags file found" >> $GITHUB_OUTPUT
           fi
