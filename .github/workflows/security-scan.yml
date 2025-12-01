@@ -25,7 +25,7 @@ jobs:
   # BUILD & TEST CON SONARQUBE
   # ============================================================================
   maven-build:
-    name: 🔨 Build & Unit Tests
+    name: 🔨 Build & Unit Tests SONARQUBE
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout code
@@ -304,12 +304,23 @@ jobs:
           java-version: '11'
 
       - name: 🔍 Run OWASP Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           chmod +x ./mvnw
-          ./mvnw -B -T 1C org.owasp:dependency-check-maven:check \
-            -Dformat=ALL \
-            -DfailBuildOnCVSS=9 \
-            -DsuppressionFiles=.dependency-check-suppressions.xml || true
+          
+          # Build command with optional NVD API Key
+          CMD="./mvnw -B -T 1C org.owasp:dependency-check-maven:check -Dformat=ALL -DfailBuildOnCVSS=9"
+          
+          if [ -n "$NVD_API_KEY" ]; then
+            echo "✅ Using NVD API Key for faster updates"
+            CMD="$CMD -DnvdApiKey=$NVD_API_KEY"
+          else
+            echo "⚠️  No NVD API Key found. Update will be slower."
+            echo "   Get a free key at: https://nvd.nist.gov/developers/request-an-api-key"
+          fi
+          
+          eval $CMD || true
 
       - name: 📤 Upload Dependency-Check Results
         if: always()
