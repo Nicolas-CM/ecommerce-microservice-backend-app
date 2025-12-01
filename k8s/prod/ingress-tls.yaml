@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: prod
+  annotations:
+    # Usar cert-manager para generar certificado TLS automáticamente
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Redireccionar HTTP a HTTPS
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Tamaño máximo de body (para uploads)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - cuellarapp.online
+    - www.cuellarapp.online
+    secretName: cuellarapp-tls  # Cert-manager creará este secret automáticamente
+  rules:
+  - host: cuellarapp.online
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
+  - host: www.cuellarapp.online
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080

@@ -1,3 +1,7 @@
+[🏠 Volver al README](../../README.md#patrones-de-diseño-implementados)
+
+---
+
 # Reporte de Patrones de Diseño
 
 Este documento identifica y describe los principales patrones de diseño presentes en el proyecto **ecommerce-microservice-backend-app**.
@@ -37,3 +41,5 @@ Este documento identifica y describe los principales patrones de diseño present
 
 ### Resumen
 El proyecto implementa patrones clásicos de aplicaciones empresariales Java/Spring: Microservicios, Controller-Service-Repository, DTO, Builder, Singleton (Spring Beans), Event Listener, Mapper, y manejo centralizado de excepciones. Además, sigue buenas prácticas de arquitectura limpia y desacoplamiento.
+
+[🏠 Volver al README](../../README.md#patrones-de-diseño-implementados)

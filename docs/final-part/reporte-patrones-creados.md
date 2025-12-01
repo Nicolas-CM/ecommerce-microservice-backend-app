@@ -1,3 +1,7 @@
+[🏠 Volver al README](../../README.md#reporte-de-patrones-creados)
+
+---
+
 # Reporte de Patrones de Diseño Implementados o Mejorados
 
 Este documento describe los patrones de diseño implementados en el proyecto, su propósito y los beneficios que aportan.
@@ -253,3 +257,5 @@ Para demostrar que el cambio ocurre sin recompilar ni redesplegar la imagen Dock
 * **Despliegues más seguros:** Si la nueva funcionalidad falla, se apaga en segundos.
 * **Testing en producción:** Permite probar características con un subconjunto de usuarios (Canary Releases).
 * **Integración Continua:** Permite mezclar código (merge) a la rama principal aunque la funcionalidad no esté terminada, manteniéndola apagada.
+
+[🏠 Volver al README](../../README.md#reporte-de-patrones-creados)

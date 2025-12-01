@@ -1,5 +1,5 @@
 
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#despliegue-con-helm-en-minikube)
 
 # Despliegue de Microservicios con Helm en Minikube
 
@@ -72,4 +72,4 @@ helm uninstall ecommerce-release -n ecommerce
 
 Esto eliminará los Deployments, Services y Pods asociados al release `ecommerce-release`.
 
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#despliegue-con-helm-en-minikube)

@@ -1,4 +1,4 @@
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#estándares-del-proyecto)
 
 # Estándares del Proyecto
 
@@ -71,4 +71,4 @@ docs: adding images
 
 <img src="images/branches.png" alt="Costos" width="400"/>
 
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#estándares-del-proyecto)

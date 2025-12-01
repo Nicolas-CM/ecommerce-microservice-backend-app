@@ -1,4 +1,4 @@
-## Regresar al [Readme](../../README.md).
+## Regresar al [Readme](../../README.md#reporte-de-tests-e2e).
 
 # 🧪 Reporte de Pruebas (Testing)
 
@@ -159,4 +159,4 @@ El sistema demostró estabilidad bajo carga moderada, con el **API Gateway** y e
 | **E2E** | Postman, Newman | Flujos Completos | ✅ 100% Passing |
 | **Performance** | Locust | Carga y Estrés | ✅ Validado |
 
-## Regresar al [Readme](../../README.md).
+## Regresar al [Readme](../../README.md#reporte-de-tests-e2e).

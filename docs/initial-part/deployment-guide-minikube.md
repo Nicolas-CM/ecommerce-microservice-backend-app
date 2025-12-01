@@ -1,6 +1,6 @@
 ## Regresar a [Parte inicial](initial-part.md).
 
-## Regresar al [Readme](../../README.md).
+## Regresar al [Readme](../../README.md#guía-de-despliegue-en-minikube-inicial).
 
 # 🚀 Guía de Despliegue en Minikube con GitHub Actions
 

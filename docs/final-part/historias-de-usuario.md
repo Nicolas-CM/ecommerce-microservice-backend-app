@@ -1,4 +1,4 @@
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#historias-de-usuario)
 
 # Backlog del Proyecto E-commerce Microservices
 
@@ -222,4 +222,4 @@ Este documento presenta el backlog del proyecto estructurado según estándares 
 - `README.md` actualizado con instrucciones de despliegue.
 - Documentación de APIs (Swagger/OpenAPI).
 
-## [Volver al README](../../README.md)
+## [Volver al README](../../README.md#historias-de-usuario)
