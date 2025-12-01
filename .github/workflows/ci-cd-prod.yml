@@ -129,28 +129,60 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 🔎 Get changelog from latest stage release
+      - name: 🔎 Generate version and changelog
         id: output_info
         run: |
-          OWNER=${{ github.repository_owner }}
-          REPO=$(basename $GITHUB_REPOSITORY)
-
-          resp=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$OWNER/$REPO/releases?per_page=100")
-          tag=$(echo "$resp" | jq -r 'sort_by(.created_at) | reverse[] | select(.tag_name | startswith("stage-")) | .tag_name' | head -n1)
-
-          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
-            echo "❌ No stage release found"
-            exit 1
+          # Generate version from date and short commit hash
+          VERSION=$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)
+          echo "Generated version: $VERSION"
+          
+          # Get latest prod release tag to compare
+          LATEST_PROD_TAG=$(git tag -l "prod-*" | sort -V | tail -n1)
+          
+          if [ -z "$LATEST_PROD_TAG" ]; then
+            echo "No previous prod release found, using last 10 commits"
+            CHANGELOG=$(git log -10 --pretty=format:"- %s (%h)" | sed 's/"/\\"/g')
+          else
+            echo "Comparing with $LATEST_PROD_TAG"
+            CHANGELOG=$(git log ${LATEST_PROD_TAG}..HEAD --pretty=format:"- %s (%h)" | sed 's/"/\\"/g')
+            
+            # If no changes since last prod release, use recent commits
+            if [ -z "$CHANGELOG" ]; then
+              echo "No new commits since last prod release, using last 5 commits"
+              CHANGELOG=$(git log -5 --pretty=format:"- %s (%h)" | sed 's/"/\\"/g')
+            fi
           fi
+          
+          # Read image tags from prod file
+          IMAGE_TAGS=""
+          if [ -f ./k8s/helm/image-tags-prod.yaml ]; then
+            IMAGE_TAGS=$(grep -E ':\s*"' ./k8s/helm/image-tags-prod.yaml | sed 's/^[[:space:]]*/  - /')
+          fi
+          
+          # Build complete changelog
+          FULL_CHANGELOG="## Production Release ${VERSION}
 
-          changelog=$(echo "$resp" | jq -r "map(select(.tag_name == \"$tag\"))[0].body")
-          version=${tag#stage-}
+          ### Image Tags
+          ${IMAGE_TAGS}
 
-          echo "Found stage release $tag -> version $version"
+          ### Changes
+          ${CHANGELOG}
 
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "changelog=$changelog" >> $GITHUB_OUTPUT
+          **Deployed:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}"
+          
+          # Output values
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Save changelog to file to avoid delimiter issues
+          echo "$FULL_CHANGELOG" > /tmp/changelog.txt
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/changelog.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: 🏷️ Create GitHub Release (Production)
         uses: actions/create-release@v1
