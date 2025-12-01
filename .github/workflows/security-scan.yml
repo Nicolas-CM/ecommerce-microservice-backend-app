@@ -100,23 +100,29 @@ jobs:
           
           chmod +x ./mvnw
           
+          # Compile project first to generate .class files
+          echo "Compiling project to generate binaries..."
+          ./mvnw -B -T 1C clean compile test-compile -DskipTests=true
+          
           # Check if using SonarCloud (requires organization)
           if [[ "$SONAR_HOST_URL" == *"sonarcloud.io"* ]]; then
             echo "Using SonarCloud - organization parameter required"
-            ./mvnw -B -DskipTests=true sonar:sonar \
+            ./mvnw -B sonar:sonar \
               -Dsonar.host.url="$SONAR_HOST_URL" \
               -Dsonar.token="$SONAR_TOKEN" \
               -Dsonar.organization="nicolas-cm" \
               -Dsonar.projectKey="Nicolas-CM_ecommerce-microservice-backend-app" \
               -Dsonar.projectName="ecommerce-microservice-backend-app" \
+              -Dsonar.java.binaries="**/target/classes" \
               -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml"
           else
             echo "Using self-hosted SonarQube"
-            ./mvnw -B -DskipTests=true sonar:sonar \
+            ./mvnw -B sonar:sonar \
               -Dsonar.host.url="$SONAR_HOST_URL" \
               -Dsonar.token="$SONAR_TOKEN" \
               -Dsonar.projectKey="ecommerce-backend" \
               -Dsonar.projectName="Ecommerce Backend" \
+              -Dsonar.java.binaries="**/target/classes" \
               -Dsonar.coverage.jacoco.xmlReportPaths="**/target/site/jacoco/jacoco.xml"
           fi
 
@@ -256,14 +262,16 @@ jobs:
           output: 'trivy-image-${{ matrix.service }}.sarif'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          exit-code: 0
         continue-on-error: true
 
       - name: 📤 Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('trivy-image-${{ matrix.service }}.sarif') != ''
         with:
           sarif_file: 'trivy-image-${{ matrix.service }}.sarif'
           category: 'trivy-image-${{ matrix.service }}'
+        continue-on-error: true
 
       - name: 🔍 Run Trivy Image Scan - Table Format
         uses: aquasecurity/trivy-action@master
