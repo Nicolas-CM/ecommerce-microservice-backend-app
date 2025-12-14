@@ -1,9 +1,9 @@
 name: Security Scans - Trivy, SonarQube & OWASP ZAP
 
 on:
-  schedule:
+  #schedule:
     # Daily scan at 02:00 UTC
-    - cron: "0 2 * * *"
+    #- cron: "0 2 * * *"
   push:
     branches: [master, stage, dev]
   pull_request:
